@@ -11,10 +11,10 @@ export async function GET() {
     });
 
     // Convert to a record for easy access
-    const settingsMap = settings.reduce((acc, curr) => {
+    const settingsMap = settings.reduce<Record<string, string>>((acc, curr) => {
         acc[curr.key] = curr.value;
         return acc;
-    }, {} as Record<string, string>);
+    }, {});
 
     return NextResponse.json(settingsMap);
 }
