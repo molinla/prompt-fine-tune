@@ -1,4 +1,4 @@
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText, ModelMessage } from 'ai';
 
 export const runtime = 'edge';
@@ -10,14 +10,14 @@ export async function POST(req: Request) {
     system: string,
   } = await req.json();
 
-  const openai = createOpenAI({
-    baseURL: 'https://openrouter.ai/api/v1',
+  const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
+  console.log(messages);
 
   const { text } = await generateText({
-    model: openai(model || 'openai/gpt-4o-mini'),
+    model: openrouter.chat(model || 'openai/gpt-4o-mini'),
     system,
     messages,
     temperature: 0,
