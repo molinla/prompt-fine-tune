@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { Play, Loader2, Plus, Trash, ChevronRight, ArrowLeft, Settings2, CheckCircle, XCircle } from "lucide-react"
+import { Play, Loader2, Plus, Trash, ChevronRight, ArrowLeft, Settings2, CheckCircle, XCircle, RotateCcw } from "lucide-react"
 import { Streamdown } from "streamdown"
 
 interface HistoryItem {
@@ -107,8 +107,29 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
         }
     }
 
+    const resetHistory = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        updateTestCase(id, { history: [] })
+    }
+
     const runSingleTest = async (testCase: TestCase) => {
         const caseId = testCase.id
+
+        // Create history item immediately
+        const newHistoryId = crypto.randomUUID()
+        const newHistoryItem: HistoryItem = {
+            id: newHistoryId,
+            timestamp: new Date().toISOString(),
+            successRate: 0
+        }
+
+        // Add to history immediately
+        setTestCases(prev => prev.map(t => {
+            if (t.id === caseId) {
+                return { ...t, history: [...t.history, newHistoryItem] }
+            }
+            return t
+        }))
 
         // Optimistic update for UI status
         setResults(prev => ({
@@ -167,42 +188,45 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                 })
             }
 
+            // Calculate current success rate
+            const currentSuccessRate = (successCount / (i + 1)) * 100
+
             // Update results progressively
             setResults(prev => ({
                 ...prev,
                 [caseId]: {
                     ...prev[caseId],
+                    status: 'running',
+                    successRate: currentSuccessRate,
                     details: [...runDetails]
                 }
             }))
+
+            // Update the live history item
+            setTestCases(prev => prev.map(t => {
+                if (t.id === caseId) {
+                    return {
+                        ...t,
+                        history: t.history.map(h =>
+                            h.id === newHistoryId
+                                ? { ...h, successRate: currentSuccessRate }
+                                : h
+                        )
+                    }
+                }
+                return t
+            }))
         }
 
-        const successRate = (successCount / testCase.expectedCount) * 100
-
-        const newHistoryItem: HistoryItem = {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
-            successRate
-        }
-
-        // Update history in state
-        setTestCases(prev => prev.map(t => {
-            if (t.id === caseId) {
-                return { ...t, history: [...t.history, newHistoryItem] }
-            }
-            return t
-        }))
+        const finalSuccessRate = (successCount / testCase.expectedCount) * 100
 
         setResults(prev => ({
             ...prev,
             [caseId]: {
-                id: crypto.randomUUID(),
-                testCaseId: caseId,
-                status: successRate === 100 ? 'success' : 'failure',
-                successRate,
-                error: successRate === 100 ? undefined : (errorMsg || 'One or more tests failed'),
-                lastRun: new Date().toISOString(),
-                details: runDetails
+                ...prev[caseId],
+                status: finalSuccessRate === 100 ? 'success' : 'failure',
+                successRate: finalSuccessRate,
+                error: finalSuccessRate === 100 ? undefined : (errorMsg || 'One or more tests failed'),
             }
         }))
     }
@@ -238,69 +262,88 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                     </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                     {testCases.map((testCase, index) => {
                         const result = results[testCase.id]
                         const successRate = result?.successRate ?? (testCase.history.length > 0 ? testCase.history[testCase.history.length - 1].successRate : undefined)
 
                         return (
                             <div key={testCase.id}
-                                className="border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative"
+                                className="flex flex-col border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative h-[250px]"
                                 onClick={() => enterLayer2(testCase)}
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <div className="flex-1 font-medium truncate pr-8">
-                                        {testCase.input || `Case #${index + 1}`}
+                                    <div className={`font-mono font-bold ${successRate === undefined ? 'text-muted-foreground' :
+                                        successRate === 100 ? 'text-green-600' :
+                                            successRate >= 50 ? 'text-yellow-600' : 'text-red-600'
+                                        }`}>
+                                        {successRate !== undefined ? `${successRate.toFixed(0)}% Success` : 'No runs yet'}
                                     </div>
-                                    <div className="absolute top-3 right-3 flex items-center gap-2">
+                                    <div className="flex items-center gap-2">
                                         {result?.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mr-2"
                                             onClick={(e) => removeTestCase(testCase.id, e)}
                                         >
                                             <Trash className="h-3 w-3 text-destructive" />
                                         </Button>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-50 group-hover:opacity-100" />
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <div className="flex gap-2 items-center">
-                                        {/* Sparkline visualization */}
-                                        <div className="flex items-end gap-px h-4 w-20 bg-muted/20 overflow-hidden">
-                                            {testCase.history.slice(-10).map((h) => (
+                                <div className="flex-1 mb-2">
+                                    <div className="text-sm text-foreground/80 line-clamp-7 wrap-break-words whitespace-pre-wrap" title={testCase.input}>
+                                        {testCase.input || <span className="italic text-muted-foreground">Empty test case...</span>}
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto pt-2 border-t border-dashed">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                        <span>Trend ({testCase.history.length} runs)</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-4 w-4 hover:bg-transparent hover:text-foreground"
+                                            onClick={(e) => resetHistory(testCase.id, e)}
+                                            title="Reset History"
+                                        >
+                                            <RotateCcw className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                    <div className="h-6 w-full bg-muted/20 flex items-end gap-0.5 rounded-sm overflow-hidden px-1 pb-1">
+                                        {testCase.history.length === 0 ? (
+                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No history</div>
+                                        ) : (
+                                            testCase.history.slice(-20).map((h) => (
                                                 <div
                                                     key={h.id}
-                                                    className={`w-1.5 ${h.successRate >= 90 ? 'bg-green-500' : h.successRate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                    style={{ height: `${Math.max(10, h.successRate)}%` }} // Minimum height for visibility
+                                                    className={`flex-1 min-w-[4px] rounded-t-sm ${h.successRate >= 90 ? 'bg-green-500' : h.successRate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                    style={{ height: `${Math.max(10, h.successRate)}%` }}
+                                                    title={`${new Date(h.timestamp).toLocaleTimeString()} - ${h.successRate.toFixed(0)}%`}
                                                 />
-                                            ))}
-                                        </div>
-                                        <span>{testCase.history.length} runs</span>
-                                    </div>
-
-                                    <div className={`font-mono font-bold ${successRate === undefined ? '' :
-                                        successRate === 100 ? 'text-green-600' :
-                                            successRate >= 50 ? 'text-yellow-600' : 'text-red-600'
-                                        }`}>
-                                        {successRate !== undefined ? `${successRate.toFixed(0)}%` : '--%'}
+                                            ))
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         )
                     })}
-
-                    <Button variant="outline" className="w-full border-dashed" onClick={addTestCase}>
-                        <Plus className="mr-2 h-4 w-4" /> New Test Case
-                    </Button>
+                    <div
+                        onClick={addTestCase}
+                        className="flex flex-col justify-center items-center border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative h-[250px]"
+                    >
+                        <Button variant="ghost" className="hover:bg-transparent cursor-pointer" >
+                            <Plus className="mr-2 h-4 w-4" /> New Test Case
+                        </Button>
+                    </div>
                 </div>
+
+
             </div>
         )
     }
 
-    // Layer 2: Detail
     return (
         <div className="flex flex-col h-full bg-background animate-in slide-in-from-right-4 duration-200">
             <div className="flex items-center gap-2 p-4 border-b">
@@ -315,123 +358,140 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Input Prompt</label>
-                    <Textarea
-                        value={editingCase?.input || ''}
-                        onChange={(e) => updateTestCase(activeTestCaseId!, { input: e.target.value })}
-                        className="min-h-[80px]"
-                        placeholder="Enter the prompt to test..."
-                    />
-                </div>
+            {/* Main Content Area - Split View */}
+            <div className="flex-1 overflow-hidden p-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Loop Count</label>
-                        <Input
-                            type="number"
-                            min={1}
-                            max={50}
-                            value={editingCase?.expectedCount || 1}
-                            onChange={(e) => updateTestCase(activeTestCaseId!, { expectedCount: parseInt(e.target.value) || 1 })}
-                        />
-                    </div>
-                    {/* Placeholder for future specific settings */}
-                    <div className="space-y-2 opacity-50 pointer-events-none">
-                        <label className="text-sm font-medium">Model</label>
-                        <Input value={model} disabled />
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Verification Script</label>
-                        <Settings2 className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <Textarea
-                        value={editingCase?.validationScript ?? DEFAULT_VALIDATION_SCRIPT}
-                        onChange={(e) => updateTestCase(activeTestCaseId!, { validationScript: e.target.value })}
-                        className="font-mono text-xs h-[150px] bg-slate-50 dark:bg-slate-950"
-                        placeholder="// function(output, input) { ... }"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                        Variables: <code>output</code> (AI response), <code>input</code> (User prompt). Throw error to fail.
-                    </p>
-                </div>
-
-                {/* Run Actions */}
-                <div className="pt-4">
-                    <Button
-                        className="w-full"
-                        size="lg"
-                        onClick={() => editingCase && runSingleTest(editingCase)}
-                        disabled={results[activeTestCaseId!]?.status === 'running'}
-                    >
-                        {results[activeTestCaseId!]?.status === 'running' ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running ({editingCase?.expectedCount}x)</>
-                        ) : (
-                            <><Play className="mr-2 h-4 w-4" /> Run Verification</>
-                        )}
-                    </Button>
-                </div>
-
-                {/* Single Run Result display */}
-                {results[activeTestCaseId!] && (
-                    <div className="space-y-4">
-                        <div className={`mt-4 p-4 rounded-lg border ${results[activeTestCaseId!].status === 'success' ? 'bg-green-50/50 border-green-200' :
-                            results[activeTestCaseId!].status === 'failure' ? 'bg-red-50/50 border-red-200' : 'bg-gray-50 border-gray-200'
-                            }`}>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="font-semibold text-sm">Last Run Result</span>
-                                <span className="text-xs text-muted-foreground">
-                                    {new Date(results[activeTestCaseId!].lastRun).toLocaleTimeString()}
-                                </span>
-                            </div>
-                            <div className="text-2xl font-bold mb-1">
-                                {results[activeTestCaseId!].successRate?.toFixed(0)}% <span className="text-sm font-normal text-muted-foreground">success</span>
-                            </div>
-                            {results[activeTestCaseId!].error && (
-                                <div className="text-xs text-red-600 mt-2 p-2 bg-red-100 rounded">
-                                    Error: {results[activeTestCaseId!].error}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Detailed Results List */}
+                    {/* LEFT COLUMN: Input & Settings */}
+                    <div className="flex flex-col gap-6 overflow-y-auto pr-2 h-full">
                         <div className="space-y-2">
-                            <h4 className="font-medium text-sm">Run Details</h4>
+                            <label className="text-sm font-medium">Input Prompt</label>
+                            <Textarea
+                                value={editingCase?.input || ''}
+                                onChange={(e) => updateTestCase(activeTestCaseId!, { input: e.target.value })}
+                                className="min-h-[260px] flex-1"
+                                placeholder="Enter the prompt to test..."
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                {results[activeTestCaseId!].details.map((detail, idx) => (
-                                    <div key={idx} className="text-sm border rounded p-3 bg-card">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-mono text-muted-foreground">Run #{detail.iteration}</span>
-                                            {detail.status === 'success' ?
-                                                <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                                                    <CheckCircle className="w-3 h-3" /> Pass
-                                                </div> :
-                                                <div className="flex items-center gap-1 text-red-600 text-xs font-medium">
-                                                    <XCircle className="w-3 h-3" /> Fail
-                                                </div>
-                                            }
-                                        </div>
-                                        <div className="space-y-1">
-                                            <div className="text-xs text-muted-foreground">Output:</div>
-                                            <Streamdown mode="static" controls={{ code: false }}>
-                                                {detail.output}
-                                            </Streamdown>
-                                            {detail.error && (
-                                                <div className="text-xs text-red-600 bg-red-50 p-1 rounded mt-1">
-                                                    {detail.error}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                <label className="text-sm font-medium">Loop Count</label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={50}
+                                    value={editingCase?.expectedCount || 1}
+                                    onChange={(e) => updateTestCase(activeTestCaseId!, { expectedCount: parseInt(e.target.value) || 1 })}
+                                />
+                            </div>
+                            <div className="space-y-2 opacity-50 pointer-events-none">
+                                <label className="text-sm font-medium">Model</label>
+                                <Input value={model} disabled />
                             </div>
                         </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium">Verification Script</label>
+                                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <Textarea
+                                value={editingCase?.validationScript ?? DEFAULT_VALIDATION_SCRIPT}
+                                onChange={(e) => updateTestCase(activeTestCaseId!, { validationScript: e.target.value })}
+                                className="font-mono text-xs h-[120px] bg-slate-50 dark:bg-slate-950"
+                                placeholder="// function(output, input) { ... }"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                                Variables: <code>output</code> (AI response), <code>input</code> (User prompt). Throw error to fail.
+                            </p>
+                        </div>
+
+                        <div className="pt-4 mt-auto">
+                            <Button
+                                className="w-full"
+                                size="lg"
+                                onClick={() => editingCase && runSingleTest(editingCase)}
+                                disabled={results[activeTestCaseId!]?.status === 'running'}
+                            >
+                                {results[activeTestCaseId!]?.status === 'running' ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running ({editingCase?.expectedCount}x)</>
+                                ) : (
+                                    <><Play className="mr-2 h-4 w-4" /> Run Verification</>
+                                )}
+                            </Button>
+                        </div>
                     </div>
-                )}
+
+                    {/* RIGHT COLUMN: Results */}
+                    <div className="flex flex-col overflow-y-auto border-l pl-6 h-full">
+                        <h4 className="font-medium mb-4 sticky top-0 bg-background z-10 py-2 border-b">Results</h4>
+
+                        {!results[activeTestCaseId!] ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-50">
+                                <Play className="h-12 w-12 mb-2" />
+                                <p>Run the test to see results here</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* Summary Card */}
+                                <div className={`p-4 rounded-lg border ${results[activeTestCaseId!].status === 'success' ? 'bg-green-50/50 border-green-200' :
+                                    results[activeTestCaseId!].status === 'failure' ? 'bg-red-50/50 border-red-200' :
+                                        'bg-secondary/50 border-border'
+                                    }`}>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="font-semibold text-sm">Last Run Summary</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            {new Date(results[activeTestCaseId!].lastRun).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                    <div className="text-3xl font-bold mb-1">
+                                        {results[activeTestCaseId!].successRate?.toFixed(0)}% <span className="text-base font-normal text-muted-foreground">success rate</span>
+                                    </div>
+                                    <div className="flex gap-4 text-xs mt-2">
+                                        <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-600" /> {results[activeTestCaseId!].details.filter(d => d.status === 'success').length} passed</span>
+                                        <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-600" /> {results[activeTestCaseId!].details.filter(d => d.status === 'failure').length} failed</span>
+                                    </div>
+                                    {results[activeTestCaseId!].error && (
+                                        <div className="text-xs text-red-600 mt-3 p-2 bg-red-100/50 rounded border border-red-200">
+                                            Error: {results[activeTestCaseId!].error}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Detailed List */}
+                                <div className="space-y-3">
+                                    <h5 className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Log Details</h5>
+                                    {results[activeTestCaseId!].details.map((detail, idx) => (
+                                        <div key={idx} className="text-sm border rounded-lg p-3 bg-card/50 hover:bg-card transition-colors">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#{detail.iteration}</span>
+                                                {detail.status === 'success' ?
+                                                    <span className="flex items-center gap-1.5 text-green-600 text-xs font-medium px-2 py-0.5 bg-green-50 rounded-full border border-green-100">
+                                                        <CheckCircle className="w-3 h-3" /> Pass
+                                                    </span> :
+                                                    <span className="flex items-center gap-1.5 text-red-600 text-xs font-medium px-2 py-0.5 bg-red-50 rounded-full border border-red-100">
+                                                        <XCircle className="w-3 h-3" /> Fail
+                                                    </span>
+                                                }
+                                            </div>
+                                            <div className="space-y-2 mt-2">
+                                                <Streamdown mode="static" className="text-xs max-h-[300px] overflow-y-auto">
+                                                    {detail.output}
+                                                </Streamdown>
+                                                {detail.error && (
+                                                    <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                                                        {detail.error}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     )

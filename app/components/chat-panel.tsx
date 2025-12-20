@@ -70,7 +70,7 @@ export function ChatPanel({ systemPrompt, model, historyTurns }: ChatPanelProps)
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 shrink-0">
         <h2 className="text-sm font-medium">Chat</h2>
         {messages.length > 0 && (
           <Button
@@ -123,7 +123,7 @@ export function ChatPanel({ systemPrompt, model, historyTurns }: ChatPanelProps)
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="p-4 border-t">
+      <div className="p-4">
         <form onSubmit={customSubmit} className="relative">
           <Textarea
             value={input}
@@ -135,6 +135,7 @@ export function ChatPanel({ systemPrompt, model, historyTurns }: ChatPanelProps)
           <Button
             type="submit"
             size="icon"
+            variant="outline"
             disabled={!input && status !== "submitted"}
             className="absolute right-2 bottom-2"
           >

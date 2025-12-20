@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openai(model || 'openai/gpt-4o-mini'),
     system: system,
-    messages: await convertToModelMessages(messages),
+    messages: convertToModelMessages(messages),
     temperature: 0,
     topP: 0,
   });
