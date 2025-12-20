@@ -14,7 +14,6 @@ export async function POST(req: Request) {
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
-  console.log(messages);
 
   const { text } = await generateText({
     model: openrouter.chat(model || 'openai/gpt-4o-mini'),

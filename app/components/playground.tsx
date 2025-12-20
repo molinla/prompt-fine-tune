@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { CheckIcon } from "lucide-react"
 import { ChatPanel } from "./chat-panel"
 import { BatchPanel } from "./batch-panel"
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
 import { models } from "./model-data"
 import {
   ModelSelector,
@@ -77,8 +78,20 @@ export function PromptPlayground() {
         {/* Left Panel: Prompt Configuration */}
         <ResizablePanel defaultSize={30} minSize={20}>
           <div className="flex flex-col h-full p-4 border-r gap-4">
-            <h2 className="text-xl font-bold">Prompt Config</h2>
-<div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Prompt Config</h2>
+              <div>
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <Button variant="outline" size="sm">Sign In</Button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <UserButton appearance={{ elements: { userButtonAvatarBox: "size-8" } }} />
+                </SignedIn>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1">
                 <label className="font-medium text-sm">Model</label>
                 <ModelSelector onOpenChange={setOpen} open={open}>
@@ -155,7 +168,7 @@ export function PromptPlayground() {
               />
             </div>
 
-            
+
           </div>
         </ResizablePanel>
 
