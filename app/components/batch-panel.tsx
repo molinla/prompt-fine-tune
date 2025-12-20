@@ -51,7 +51,10 @@ if (!output.includes('expected')) {
 
 const STORAGE_KEY = "batch-test-cases"
 
+import { useAuth } from "@clerk/nextjs"
+
 export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
+    const { userId, isLoaded: authLoaded } = useAuth()
     const [testCases, setTestCases] = useState<TestCase[]>([])
     const [results, setResults] = useState<Record<string, TestResult>>({})
     const [isRunning, setIsRunning] = useState(false)
@@ -62,28 +65,73 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
     const [editingCase, setEditingCase] = useState<TestCase | null>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
-    // Load from local storage on mount
+    // Load from local storage or backend on mount
     useEffect(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY)
-            if (saved) {
-                setTestCases(JSON.parse(saved))
+        const loadData = async () => {
+            // 1. Try backend first if signed in
+            if (userId) {
+                try {
+                    const res = await fetch('/api/test-cases')
+                    if (res.ok) {
+                        const data = await res.json()
+                        setTestCases(data)
+                        setIsLoaded(true)
+                        return
+                    }
+                } catch (e) {
+                    console.error("Failed to load test cases from backend", e)
+                }
             }
-        } catch (e) {
-            console.error("Failed to load batch test cases", e)
-        } finally {
-            setIsLoaded(true)
-        }
-    }, [])
 
-    // Save to local storage on change
+            // 2. Fallback to localStorage
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY)
+                if (saved) {
+                    setTestCases(JSON.parse(saved))
+                }
+            } catch (e) {
+                console.error("Failed to load batch test cases from localStorage", e)
+            } finally {
+                setIsLoaded(true)
+            }
+        }
+
+        if (authLoaded) {
+            loadData()
+        }
+    }, [userId, authLoaded])
+
+    // Save to local storage on change (still useful as backup/offline)
     useEffect(() => {
         if (isLoaded) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(testCases))
         }
     }, [testCases, isLoaded])
 
-    const addTestCase = () => {
+    const addTestCase = async () => {
+        const newCase: Partial<TestCase> = {
+            input: "",
+            expectedCount: 5,
+        }
+
+        if (userId) {
+            try {
+                const res = await fetch('/api/test-cases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newCase)
+                })
+                if (res.ok) {
+                    const savedCase = await res.json()
+                    setTestCases([...testCases, savedCase])
+                    return
+                }
+            } catch (e) {
+                console.error("Failed to save new test case to backend", e)
+            }
+        }
+
+        // Fallback to local only if not signed in or error
         setTestCases([...testCases, {
             id: crypto.randomUUID(),
             input: "",
@@ -92,8 +140,15 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
         }])
     }
 
-    const removeTestCase = (id: string, e?: React.MouseEvent) => {
+    const removeTestCase = async (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation()
+        if (userId) {
+            try {
+                await fetch(`/api/test-cases/${id}`, { method: 'DELETE' })
+            } catch (e) {
+                console.error("Failed to delete test case from backend", e)
+            }
+        }
         setTestCases(testCases.filter(t => t.id !== id))
         if (activeTestCaseId === id) {
             setActiveTestCaseId(null)
@@ -101,19 +156,55 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
         }
     }
 
-    const updateTestCase = (id: string, updates: Partial<TestCase>) => {
+    const updateTestCase = async (id: string, updates: Partial<TestCase>) => {
         setTestCases(testCases.map(t => t.id === id ? { ...t, ...updates } : t))
         if (editingCase?.id === id) {
             setEditingCase({ ...editingCase, ...updates })
         }
+
+        if (userId) {
+            try {
+                await fetch(`/api/test-cases/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                })
+            } catch (e) {
+                console.error("Failed to update test case in backend", e)
+            }
+        }
     }
 
-    const resetHistory = (id: string, e: React.MouseEvent) => {
+    const resetHistory = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation()
+        if (userId) {
+            try {
+                await fetch(`/api/test-cases/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resetHistory: true })
+                })
+            } catch (e) {
+                console.error("Failed to reset history in backend", e)
+            }
+        }
         updateTestCase(id, { history: [] })
     }
 
-    const resetAllHistory = () => {
+    const resetAllHistory = async () => {
+        for (const testCase of testCases) {
+            if (userId) {
+                try {
+                    await fetch(`/api/test-cases/${testCase.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ resetHistory: true })
+                    })
+                } catch (e) {
+                    console.error("Failed to reset history for test case", testCase.id, e)
+                }
+            }
+        }
         setTestCases(prev => prev.map(t => ({ ...t, history: [] })))
     }
 
@@ -269,6 +360,24 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
         }
 
         const finalSuccessRate = (successCount / testCase.expectedCount) * 100
+
+        // Save to backend history if signed in
+        if (userId) {
+            try {
+                await fetch(`/api/test-cases/${caseId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        historyItem: {
+                            successRate: finalSuccessRate,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                })
+            } catch (e) {
+                console.error("Failed to save history item to backend", e)
+            }
+        }
 
         // Clean up abort controller
         setAbortControllers(prev => {

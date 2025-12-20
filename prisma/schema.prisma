@@ -1,0 +1,33 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model UserSetting {
+  userId String
+  key    String
+  value  String
+  @@id([userId, key])
+}
+
+model TestCase {
+  id               String        @id @default(uuid())
+  userId           String
+  input            String
+  expectedCount    Int           @default(5)
+  validationScript String?
+  history          HistoryItem[]
+  createdAt        DateTime      @default(now())
+}
+
+model HistoryItem {
+  id          String   @id @default(uuid())
+  testCaseId  String
+  testCase    TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  timestamp   DateTime @default(now())
+  successRate Float
+}
