@@ -11,7 +11,7 @@ export async function GET() {
     });
 
     // Convert to a record for easy access
-    const settingsMap = settings.reduce<Record<string, string>>((acc, curr) => {
+    const settingsMap = settings.reduce<Record<string, string>>((acc: Record<string, string>, curr) => {
         acc[curr.key] = curr.value;
         return acc;
     }, {});
