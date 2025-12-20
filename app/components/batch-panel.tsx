@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { Play, Loader2, Plus, Trash, ChevronRight, ArrowLeft, Settings2, CheckCircle, XCircle, RotateCcw } from "lucide-react"
+import { Play, Loader2, Plus, Trash, ChevronRight, ArrowLeft, Settings2, CheckCircle, XCircle, RotateCcw, StopCircle } from "lucide-react"
 import { Streamdown } from "streamdown"
 
 interface HistoryItem {
@@ -56,6 +56,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
     const [results, setResults] = useState<Record<string, TestResult>>({})
     const [isRunning, setIsRunning] = useState(false)
     const [activeTestCaseId, setActiveTestCaseId] = useState<string | null>(null)
+    const [abortControllers, setAbortControllers] = useState<Record<string, AbortController>>({})
 
     // Layer 2 State (Drafting changes before running/saving)
     const [editingCase, setEditingCase] = useState<TestCase | null>(null)
@@ -112,8 +113,52 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
         updateTestCase(id, { history: [] })
     }
 
+    const resetAllHistory = () => {
+        setTestCases(prev => prev.map(t => ({ ...t, history: [] })))
+    }
+
+    const terminateTest = (caseId: string, e?: React.MouseEvent) => {
+        e?.stopPropagation()
+        const controller = abortControllers[caseId]
+        if (controller) {
+            controller.abort()
+            setAbortControllers(prev => {
+                const next = { ...prev }
+                delete next[caseId]
+                return next
+            })
+            setResults(prev => ({
+                ...prev,
+                [caseId]: {
+                    ...prev[caseId],
+                    status: 'failure',
+                    error: 'Terminated by user'
+                }
+            }))
+        }
+    }
+
+    const terminateAllTests = () => {
+        Object.keys(abortControllers).forEach(caseId => {
+            abortControllers[caseId]?.abort()
+        })
+        setAbortControllers({})
+        setIsRunning(false)
+        setResults(prev => {
+            const next = { ...prev }
+            Object.keys(next).forEach(caseId => {
+                if (next[caseId].status === 'running') {
+                    next[caseId] = { ...next[caseId], status: 'failure', error: 'Terminated by user' }
+                }
+            })
+            return next
+        })
+    }
+
     const runSingleTest = async (testCase: TestCase) => {
         const caseId = testCase.id
+        const controller = new AbortController()
+        setAbortControllers(prev => ({ ...prev, [caseId]: controller }))
 
         // Create history item immediately
         const newHistoryId = crypto.randomUUID()
@@ -158,7 +203,8 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                         messages: [{ role: 'user', content: testCase.input }],
                         model,
                         system: systemPrompt
-                    })
+                    }),
+                    signal: controller.signal
                 })
 
                 if (!response.ok) throw new Error('Network response was not ok')
@@ -179,6 +225,10 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                 })
 
             } catch (e: any) {
+                if (e.name === 'AbortError') {
+                    // User terminated, stop the loop
+                    break
+                }
                 errorMsg = e.message
                 runDetails.push({
                     iteration: i + 1,
@@ -220,23 +270,32 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
 
         const finalSuccessRate = (successCount / testCase.expectedCount) * 100
 
-        setResults(prev => ({
-            ...prev,
-            [caseId]: {
-                ...prev[caseId],
-                status: finalSuccessRate === 100 ? 'success' : 'failure',
-                successRate: finalSuccessRate,
-                error: finalSuccessRate === 100 ? undefined : (errorMsg || 'One or more tests failed'),
+        // Clean up abort controller
+        setAbortControllers(prev => {
+            const next = { ...prev }
+            delete next[caseId]
+            return next
+        })
+
+        // Only update final status if not already terminated
+        setResults(prev => {
+            if (prev[caseId]?.error === 'Terminated by user') return prev
+            return {
+                ...prev,
+                [caseId]: {
+                    ...prev[caseId],
+                    status: finalSuccessRate === 100 ? 'success' : 'failure',
+                    successRate: finalSuccessRate,
+                    error: finalSuccessRate === 100 ? undefined : (errorMsg || 'One or more tests failed'),
+                }
             }
-        }))
+        })
     }
 
     const runAllTests = async () => {
         setIsRunning(true)
-        // Run sequentially to avoid rate limits
-        for (const testCase of testCases) {
-            await runSingleTest(testCase)
-        }
+        // Run all test cases in parallel - each card's batch requests are independent
+        await Promise.all(testCases.map(testCase => runSingleTest(testCase)))
         setIsRunning(false)
     }
 
@@ -256,10 +315,23 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
             <div className="flex flex-col h-full gap-4 p-4 overflow-y-auto">
                 <div className="flex justify-between items-center">
                     <h3 className="text-lg font-medium">Batch Suite</h3>
-                    <Button onClick={runAllTests} disabled={isRunning || testCases.length === 0}>
-                        {isRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                        Run Suite
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={resetAllHistory} disabled={isRunning || testCases.length === 0}>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Reset All
+                        </Button>
+                        {isRunning ? (
+                            <Button variant="destructive" onClick={terminateAllTests}>
+                                <StopCircle className="mr-2 h-4 w-4" />
+                                Stop All
+                            </Button>
+                        ) : (
+                            <Button onClick={runAllTests} disabled={testCases.length === 0}>
+                                <Play className="mr-2 h-4 w-4" />
+                                Run Suite
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -273,22 +345,41 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                                 onClick={() => enterLayer2(testCase)}
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <div className={`font-mono font-bold ${successRate === undefined ? 'text-muted-foreground' :
-                                        successRate === 100 ? 'text-green-600' :
-                                            successRate >= 50 ? 'text-yellow-600' : 'text-red-600'
-                                        }`}>
-                                        {successRate !== undefined ? `${successRate.toFixed(0)}% Success` : 'No runs yet'}
+                                    <div className="flex flex-col">
+                                        <div className={`font-mono font-bold ${successRate === undefined ? 'text-muted-foreground' :
+                                            successRate === 100 ? 'text-green-600' :
+                                                successRate >= 50 ? 'text-yellow-600' : 'text-red-600'
+                                            }`}>
+                                            {successRate !== undefined ? `${successRate.toFixed(0)}% Success` : 'No runs yet'}
+                                            {result?.status === 'running' && (
+                                                <span className="text-xs text-muted-foreground font-mono mt-0.5">
+                                                    ({result.details.length}/{testCase.expectedCount})
+                                                </span>
+                                            )}
+                                        </div>
+
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {result?.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mr-2"
-                                            onClick={(e) => removeTestCase(testCase.id, e)}
-                                        >
-                                            <Trash className="h-3 w-3 text-destructive" />
-                                        </Button>
+                                        {result?.status === 'running' ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-destructive hover:text-destructive -mr-2"
+                                                onClick={(e) => terminateTest(testCase.id, e)}
+                                                title="Stop this test"
+                                            >
+                                                <StopCircle className="h-4 w-4" />
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mr-2"
+                                                onClick={(e) => removeTestCase(testCase.id, e)}
+                                            >
+                                                <Trash className="h-3 w-3 text-destructive" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -408,18 +499,24 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                         </div>
 
                         <div className="pt-4 mt-auto">
-                            <Button
-                                className="w-full"
-                                size="lg"
-                                onClick={() => editingCase && runSingleTest(editingCase)}
-                                disabled={results[activeTestCaseId!]?.status === 'running'}
-                            >
-                                {results[activeTestCaseId!]?.status === 'running' ? (
-                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running ({editingCase?.expectedCount}x)</>
-                                ) : (
-                                    <><Play className="mr-2 h-4 w-4" /> Run Verification</>
-                                )}
-                            </Button>
+                            {results[activeTestCaseId!]?.status === 'running' ? (
+                                <Button
+                                    className="w-full"
+                                    size="lg"
+                                    variant="destructive"
+                                    onClick={() => terminateTest(activeTestCaseId!)}
+                                >
+                                    <StopCircle className="mr-2 h-4 w-4" /> Stop Test
+                                </Button>
+                            ) : (
+                                <Button
+                                    className="w-full"
+                                    size="lg"
+                                    onClick={() => editingCase && runSingleTest(editingCase)}
+                                >
+                                    <Play className="mr-2 h-4 w-4" /> Run Verification
+                                </Button>
+                            )}
                         </div>
                     </div>
 
