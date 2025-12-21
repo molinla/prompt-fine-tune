@@ -55,7 +55,7 @@ export function ChatPanel({ systemPrompt, model, historyTurns }: ChatPanelProps)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       customSubmit()
     }
