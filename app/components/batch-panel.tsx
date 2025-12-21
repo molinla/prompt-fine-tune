@@ -448,10 +448,33 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
             )
         }
 
+        // Calculate global success rate from all test cases
+        const globalSuccessRate = (() => {
+            const rates: number[] = []
+            for (const tc of testCases) {
+                const result = results[tc.id]
+                const rate = result?.successRate ?? (tc.history.length > 0 ? tc.history[tc.history.length - 1].successRate : undefined)
+                if (rate !== undefined) {
+                    rates.push(rate)
+                }
+            }
+            return rates.length > 0 ? rates.reduce((a, b) => a + b, 0) / rates.length : undefined
+        })()
+
         return (
             <div className="flex flex-col h-full gap-4 p-4 overflow-y-auto">
                 <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Batch Suite</h3>
+                    <h3 className="text-lg font-medium">
+                        <span className="mr-4">
+                            Batch Suite
+                        </span>
+                        <span className={`font-mono font-bold ${globalSuccessRate === undefined ? 'text-muted-foreground' :
+                            globalSuccessRate === 100 ? 'text-green-600' :
+                                globalSuccessRate >= 50 ? 'text-yellow-600' : 'text-red-600'
+                            }`}>
+                            {globalSuccessRate !== undefined ? `${globalSuccessRate.toFixed(0)}% Success` : 'No runs yet'}
+                        </span>
+                    </h3>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={resetAllHistory} disabled={isRunning || testCases.length === 0}>
                             <RotateCcw className="mr-2 h-4 w-4" />
@@ -478,16 +501,16 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
 
                         return (
                             <div key={testCase.id}
-                                className="flex flex-col border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative h-[250px]"
+                                className="flex flex-col border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative min-h-[250px]"
                                 onClick={() => enterLayer2(testCase)}
                             >
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex flex-col">
-                                        <div className={`font-mono font-bold ${successRate === undefined ? 'text-muted-foreground' :
+                                        <div className={`font-mono font-bold ${successRate === undefined || (result?.status === 'running' && result.details.length === 0) ? 'text-muted-foreground' :
                                             successRate === 100 ? 'text-green-600' :
                                                 successRate >= 50 ? 'text-yellow-600' : 'text-red-600'
                                             }`}>
-                                            {successRate !== undefined ? `${successRate.toFixed(0)}% Success` : 'No runs yet'}
+                                            {successRate === undefined || (result?.status === 'running' && result.details.length === 0) ? 'No runs yet' : `${successRate.toFixed(0)}% Success`}
                                             {result?.status === 'running' && (
                                                 <span className="text-xs text-muted-foreground font-mono mt-0.5">
                                                     ({result.details.length}/{testCase.expectedCount})
@@ -544,19 +567,91 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                                             <RotateCcw className="h-3 w-3" />
                                         </Button>
                                     </div>
-                                    <div className="h-6 w-full bg-muted/20 flex items-end gap-0.5 rounded-sm overflow-hidden px-1 pb-1">
+                                    <div className="h-10 w-full bg-muted/20 rounded-sm overflow-hidden">
                                         {testCase.history.length === 0 ? (
                                             <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No history</div>
-                                        ) : (
-                                            testCase.history.slice(-20).map((h) => (
-                                                <div
-                                                    key={h.id}
-                                                    className={`flex-1 min-w-[4px] rounded-t-sm ${h.successRate >= 90 ? 'bg-green-500' : h.successRate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                    style={{ height: `${Math.max(10, h.successRate)}%` }}
-                                                    title={`${new Date(h.timestamp).toLocaleTimeString()} - ${h.successRate.toFixed(0)}%`}
-                                                />
-                                            ))
-                                        )}
+                                        ) : (() => {
+                                            const data = testCase.history.slice(-20)
+                                            const width = 200
+                                            const height = 40
+                                            const padding = 4
+                                            const chartWidth = width - padding * 2
+                                            const chartHeight = height - padding * 2
+
+                                            const points = data.map((h, i) => ({
+                                                x: padding + (i / (data.length - 1 || 1)) * chartWidth,
+                                                y: padding + chartHeight - (h.successRate / 100) * chartHeight,
+                                                rate: h.successRate,
+                                                timestamp: h.timestamp,
+                                                id: h.id
+                                            }))
+
+                                            // Generate smooth curve path using catmull-rom to bezier
+                                            const generateCurvePath = (pts: typeof points) => {
+                                                if (pts.length < 2) return `M ${pts[0]?.x ?? 0} ${pts[0]?.y ?? 0}`
+
+                                                let path = `M ${pts[0].x} ${pts[0].y}`
+
+                                                for (let i = 0; i < pts.length - 1; i++) {
+                                                    const p0 = pts[Math.max(0, i - 1)]
+                                                    const p1 = pts[i]
+                                                    const p2 = pts[i + 1]
+                                                    const p3 = pts[Math.min(pts.length - 1, i + 2)]
+
+                                                    const cp1x = p1.x + (p2.x - p0.x) / 6
+                                                    const cp1y = p1.y + (p2.y - p0.y) / 6
+                                                    const cp2x = p2.x - (p3.x - p1.x) / 6
+                                                    const cp2y = p2.y - (p3.y - p1.y) / 6
+
+                                                    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`
+                                                }
+
+                                                return path
+                                            }
+
+                                            const curvePath = generateCurvePath(points)
+                                            const areaPath = `${curvePath} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
+
+                                            // Get average for color
+                                            const avgRate = data.reduce((a, b) => a + b.successRate, 0) / data.length
+                                            const strokeColor = avgRate >= 90 ? '#22c55e' : avgRate >= 50 ? '#eab308' : '#ef4444'
+                                            const fillColor = avgRate >= 90 ? 'rgba(34, 197, 94, 0.15)' : avgRate >= 50 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)'
+
+                                            return (
+                                                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+                                                    <defs>
+                                                        <linearGradient id={`gradient-${testCase.id}`} x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.3" />
+                                                            <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <path
+                                                        d={areaPath}
+                                                        fill={`url(#gradient-${testCase.id})`}
+                                                    />
+                                                    <path
+                                                        d={curvePath}
+                                                        fill="none"
+                                                        stroke={strokeColor}
+                                                        strokeWidth="1.5"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    />
+                                                    {points.map((p, i) => (
+                                                        <circle
+                                                            key={data[i].id}
+                                                            cx={p.x}
+                                                            cy={p.y}
+                                                            r="2"
+                                                            fill={strokeColor}
+                                                            className="opacity-0 hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <title>{`${new Date(p.timestamp).toLocaleTimeString()} - ${p.rate.toFixed(0)}%`}</title>
+                                                        </circle>
+                                                    ))}
+                                                </svg>
+                                            )
+                                        })()}
                                     </div>
                                 </div>
                             </div>
@@ -564,7 +659,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                     })}
                     <div
                         onClick={isAdding ? undefined : addTestCase}
-                        className={`flex flex-col justify-center items-center border rounded-lg p-3 transition-colors group bg-card relative h-[250px] ${isAdding ? 'opacity-70 cursor-wait' : 'hover:border-primary/50 cursor-pointer'}`}
+                        className={`flex flex-col justify-center items-center border rounded-lg p-3 transition-colors group bg-card relative min-h-[250px] ${isAdding ? 'opacity-70 cursor-wait' : 'hover:border-primary/50 cursor-pointer'}`}
                     >
                         <Button variant="ghost" className="hover:bg-transparent cursor-pointer" disabled={isAdding}>
                             {isAdding ? (
