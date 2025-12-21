@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Play, Loader2, Plus, Trash, ChevronRight, ArrowLeft, Settings2, CheckCircle, XCircle, RotateCcw, StopCircle } from "lucide-react"
 import { Streamdown } from "streamdown"
+import { ChartContainer, ChartConfig } from "@/components/ui/chart"
+import { Area, AreaChart, YAxis } from "recharts"
 
 interface HistoryItem {
     id: string
@@ -50,6 +52,61 @@ if (!output.includes('expected')) {
 }`
 
 const STORAGE_KEY = "batch-test-cases"
+
+// TrendChart component using shadcn chart
+const chartConfig = {
+    successRate: {
+        label: "Success Rate",
+        color: "hsl(var(--chart-1))",
+    },
+} satisfies ChartConfig
+
+function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
+    if (history.length === 0) {
+        return (
+            <div className="h-12 w-full bg-muted/20 rounded-sm flex items-center justify-center text-[10px] text-muted-foreground">
+                No history
+            </div>
+        )
+    }
+
+    const data = history.slice(-20).map((h, i) => ({
+        index: i,
+        successRate: h.successRate,
+        timestamp: h.timestamp,
+    }))
+
+    // Calculate average for dynamic color
+    const avgRate = data.reduce((a, b) => a + b.successRate, 0) / data.length
+    const color = avgRate >= 90 ? '#22c55e' : avgRate >= 50 ? '#eab308' : '#ef4444'
+
+    const gradientId = `fillSuccessRate-${id}`
+
+    return (
+        <ChartContainer config={chartConfig} className="h-12 w-full">
+            <AreaChart
+                data={data}
+                margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+            >
+                <defs>
+                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={color} stopOpacity="0.3" />
+                        <stop offset="95%" stopColor={color} stopOpacity={0} />
+                    </linearGradient>
+                </defs>
+                <YAxis domain={[0, 100]} hide />
+                <Area
+                    type="monotone"
+                    dataKey="successRate"
+                    stroke={color}
+                    strokeWidth={1.5}
+                    fill={`url(#${gradientId})`}
+                    dot={false}
+                />
+            </AreaChart>
+        </ChartContainer>
+    )
+}
 
 import { useAuth } from "@clerk/nextjs"
 
@@ -213,6 +270,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
         for (const testCase of testCases) {
             if (userId) {
                 try {
+                    setIsFetching(true)
                     await fetch(`/api/test-cases/${testCase.id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
@@ -220,6 +278,8 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                     })
                 } catch (e) {
                     console.error("Failed to reset history for test case", testCase.id, e)
+                } finally {
+                    setIsFetching(false)
                 }
             }
         }
@@ -567,92 +627,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                                             <RotateCcw className="h-3 w-3" />
                                         </Button>
                                     </div>
-                                    <div className="h-10 w-full bg-muted/20 rounded-sm overflow-hidden">
-                                        {testCase.history.length === 0 ? (
-                                            <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No history</div>
-                                        ) : (() => {
-                                            const data = testCase.history.slice(-20)
-                                            const width = 200
-                                            const height = 40
-                                            const padding = 4
-                                            const chartWidth = width - padding * 2
-                                            const chartHeight = height - padding * 2
-
-                                            const points = data.map((h, i) => ({
-                                                x: padding + (i / (data.length - 1 || 1)) * chartWidth,
-                                                y: padding + chartHeight - (h.successRate / 100) * chartHeight,
-                                                rate: h.successRate,
-                                                timestamp: h.timestamp,
-                                                id: h.id
-                                            }))
-
-                                            // Generate smooth curve path using catmull-rom to bezier
-                                            const generateCurvePath = (pts: typeof points) => {
-                                                if (pts.length < 2) return `M ${pts[0]?.x ?? 0} ${pts[0]?.y ?? 0}`
-
-                                                let path = `M ${pts[0].x} ${pts[0].y}`
-
-                                                for (let i = 0; i < pts.length - 1; i++) {
-                                                    const p0 = pts[Math.max(0, i - 1)]
-                                                    const p1 = pts[i]
-                                                    const p2 = pts[i + 1]
-                                                    const p3 = pts[Math.min(pts.length - 1, i + 2)]
-
-                                                    const cp1x = p1.x + (p2.x - p0.x) / 6
-                                                    const cp1y = p1.y + (p2.y - p0.y) / 6
-                                                    const cp2x = p2.x - (p3.x - p1.x) / 6
-                                                    const cp2y = p2.y - (p3.y - p1.y) / 6
-
-                                                    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`
-                                                }
-
-                                                return path
-                                            }
-
-                                            const curvePath = generateCurvePath(points)
-                                            const areaPath = `${curvePath} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
-
-                                            // Get average for color
-                                            const avgRate = data.reduce((a, b) => a + b.successRate, 0) / data.length
-                                            const strokeColor = avgRate >= 90 ? '#22c55e' : avgRate >= 50 ? '#eab308' : '#ef4444'
-                                            const fillColor = avgRate >= 90 ? 'rgba(34, 197, 94, 0.15)' : avgRate >= 50 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)'
-
-                                            return (
-                                                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
-                                                    <defs>
-                                                        <linearGradient id={`gradient-${testCase.id}`} x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.3" />
-                                                            <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <path
-                                                        d={areaPath}
-                                                        fill={`url(#gradient-${testCase.id})`}
-                                                    />
-                                                    <path
-                                                        d={curvePath}
-                                                        fill="none"
-                                                        stroke={strokeColor}
-                                                        strokeWidth="1.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    />
-                                                    {points.map((p, i) => (
-                                                        <circle
-                                                            key={data[i].id}
-                                                            cx={p.x}
-                                                            cy={p.y}
-                                                            r="2"
-                                                            fill={strokeColor}
-                                                            className="opacity-0 hover:opacity-100 transition-opacity"
-                                                        >
-                                                            <title>{`${new Date(p.timestamp).toLocaleTimeString()} - ${p.rate.toFixed(0)}%`}</title>
-                                                        </circle>
-                                                    ))}
-                                                </svg>
-                                            )
-                                        })()}
-                                    </div>
+                                    <TrendChart history={testCase.history} id={testCase.id} />
                                 </div>
                             </div>
                         )
