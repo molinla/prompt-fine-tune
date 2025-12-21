@@ -28,7 +28,7 @@ import {
 
 export function PromptPlayground() {
   const { userId, isLoaded: authLoaded } = useAuth()
-  const [systemPrompt, setSystemPrompt] = useState("Result in Markdown")
+  const [systemPrompt, setSystemPrompt] = useState("")
   const [historyTurns, setHistoryTurns] = useState(5)
   const [model, setModel] = useState("gpt-4o-mini") // Default to matching ID in list if possible, or handle prefix
   const [isSyncing, setIsSyncing] = useState(false)
