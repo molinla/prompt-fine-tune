@@ -65,9 +65,15 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
     const [editingCase, setEditingCase] = useState<TestCase | null>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
+    // Loading states for API operations
+    const [isFetching, setIsFetching] = useState(false)
+    const [isAdding, setIsAdding] = useState(false)
+    const [isDeletingId, setIsDeletingId] = useState<string | null>(null)
+
     // Load from local storage or backend on mount
     useEffect(() => {
         const loadData = async () => {
+            setIsFetching(true)
             // 1. Try backend first if signed in
             if (userId) {
                 try {
@@ -76,6 +82,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                         const data = await res.json()
                         setTestCases(data)
                         setIsLoaded(true)
+                        setIsFetching(false)
                         return
                     }
                 } catch (e) {
@@ -93,6 +100,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                 console.error("Failed to load batch test cases from localStorage", e)
             } finally {
                 setIsLoaded(true)
+                setIsFetching(false)
             }
         }
 
@@ -109,50 +117,60 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
     }, [testCases, isLoaded])
 
     const addTestCase = async () => {
+        setIsAdding(true)
         const newCase: Partial<TestCase> = {
             input: "",
             expectedCount: 5,
         }
 
-        if (userId) {
-            try {
-                const res = await fetch('/api/test-cases', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newCase)
-                })
-                if (res.ok) {
-                    const savedCase = await res.json()
-                    setTestCases([...testCases, savedCase])
-                    return
+        try {
+            if (userId) {
+                try {
+                    const res = await fetch('/api/test-cases', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newCase)
+                    })
+                    if (res.ok) {
+                        const savedCase = await res.json()
+                        setTestCases([...testCases, savedCase])
+                        return
+                    }
+                } catch (e) {
+                    console.error("Failed to save new test case to backend", e)
                 }
-            } catch (e) {
-                console.error("Failed to save new test case to backend", e)
             }
-        }
 
-        // Fallback to local only if not signed in or error
-        setTestCases([...testCases, {
-            id: crypto.randomUUID(),
-            input: "",
-            expectedCount: 5,
-            history: []
-        }])
+            // Fallback to local only if not signed in or error
+            setTestCases([...testCases, {
+                id: crypto.randomUUID(),
+                input: "",
+                expectedCount: 5,
+                history: []
+            }])
+        } finally {
+            setIsAdding(false)
+        }
     }
 
     const removeTestCase = async (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation()
-        if (userId) {
-            try {
-                await fetch(`/api/test-cases/${id}`, { method: 'DELETE' })
-            } catch (e) {
-                console.error("Failed to delete test case from backend", e)
+        setIsDeletingId(id)
+        try {
+            if (userId) {
+                try {
+                    await fetch(`/api/test-cases/${id}`, { method: 'DELETE' })
+                } catch (e) {
+                    console.error("Failed to delete test case from backend", e)
+                }
             }
-        }
-        setTestCases(testCases.filter(t => t.id !== id))
-        if (activeTestCaseId === id) {
-            setActiveTestCaseId(null)
-            setEditingCase(null)
+            setTestCases(testCases.filter(t => t.id !== id))
+            if (activeTestCaseId === id) {
+                setActiveTestCaseId(null)
+                setEditingCase(null)
+            }
+        } finally {
+            setIsDeletingId(null)
         }
     }
 
@@ -420,6 +438,16 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
 
     // Layer 1: Overview
     if (!activeTestCaseId) {
+        // Show loading overlay while fetching initial data
+        if (isFetching) {
+            return (
+                <div className="flex flex-col h-full gap-4 p-4 items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Loading test cases...</p>
+                </div>
+            )
+        }
+
         return (
             <div className="flex flex-col h-full gap-4 p-4 overflow-y-auto">
                 <div className="flex justify-between items-center">
@@ -479,12 +507,17 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                                             >
                                                 <StopCircle className="h-4 w-4" />
                                             </Button>
+                                        ) : isDeletingId === testCase.id ? (
+                                            <div className="h-6 w-6 flex items-center justify-center -mr-2">
+                                                <Loader2 className="h-3 w-3 animate-spin text-destructive" />
+                                            </div>
                                         ) : (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mr-2"
                                                 onClick={(e) => removeTestCase(testCase.id, e)}
+                                                disabled={isDeletingId !== null}
                                             >
                                                 <Trash className="h-3 w-3 text-destructive" />
                                             </Button>
@@ -530,11 +563,16 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                         )
                     })}
                     <div
-                        onClick={addTestCase}
-                        className="flex flex-col justify-center items-center border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative h-[250px]"
+                        onClick={isAdding ? undefined : addTestCase}
+                        className={`flex flex-col justify-center items-center border rounded-lg p-3 transition-colors group bg-card relative h-[250px] ${isAdding ? 'opacity-70 cursor-wait' : 'hover:border-primary/50 cursor-pointer'}`}
                     >
-                        <Button variant="ghost" className="hover:bg-transparent cursor-pointer" >
-                            <Plus className="mr-2 h-4 w-4" /> New Test Case
+                        <Button variant="ghost" className="hover:bg-transparent cursor-pointer" disabled={isAdding}>
+                            {isAdding ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Plus className="mr-2 h-4 w-4" />
+                            )}
+                            {isAdding ? 'Adding...' : 'New Test Case'}
                         </Button>
                     </div>
                 </div>
@@ -559,11 +597,11 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
             </div>
 
             {/* Main Content Area - Split View */}
-            <div className="flex-1 overflow-hidden p-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+            <div className="flex-1 p-4 pt-0 lg:pt-4 overflow-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-6 h-full">
 
                     {/* LEFT COLUMN: Input & Settings */}
-                    <div className="flex flex-col gap-6 overflow-y-auto pr-2 h-full">
+                    <div className="flex flex-col pt-4 lg:pt-0 gap-6 pr-2 h-full">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Input Prompt</label>
                             <Textarea
@@ -597,7 +635,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                                 <Settings2 className="h-4 w-4 text-muted-foreground" />
                             </div>
                             <Textarea
-                                value={editingCase?.validationScript ?? DEFAULT_VALIDATION_SCRIPT}
+                                value={editingCase?.validationScript || DEFAULT_VALIDATION_SCRIPT}
                                 onChange={(e) => updateTestCase(activeTestCaseId!, { validationScript: e.target.value })}
                                 className="font-mono text-xs h-[120px] bg-slate-50 dark:bg-slate-950"
                                 placeholder="// function(output, input) { ... }"
@@ -630,7 +668,7 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                     </div>
 
                     {/* RIGHT COLUMN: Results */}
-                    <div className="flex flex-col overflow-y-auto border-l pl-6 h-full">
+                    <div className="flex flex-col py-6 lg:pt-0 lg:overflow-y-auto lg:border-l lg:pl-6 h-full">
                         <h4 className="font-medium mb-4 sticky top-0 bg-background z-10 py-2 border-b">Results</h4>
 
                         {!results[activeTestCaseId!] ? (

@@ -13,7 +13,7 @@ export async function GET() {
                 orderBy: { timestamp: 'asc' }
             }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'asc' }
     });
 
     return NextResponse.json(testCases);

@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon, Loader2 } from "lucide-react"
 import { ChatPanel } from "./chat-panel"
 import { BatchPanel } from "./batch-panel"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
@@ -30,46 +30,30 @@ export function PromptPlayground() {
   const { userId, isLoaded: authLoaded } = useAuth()
   const [systemPrompt, setSystemPrompt] = useState("")
   const [historyTurns, setHistoryTurns] = useState(5)
-  const [model, setModel] = useState("gpt-4o-mini") // Default to matching ID in list if possible, or handle prefix
-  const [isSyncing, setIsSyncing] = useState(false)
+  const [model, setModel] = useState("gpt-4o-mini")
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Load from backend OR local storage on mount
+  // Load config from backend on mount (batch get)
   useEffect(() => {
     const loadData = async () => {
-      // 1. Load from localStorage first for immediate UI
-      const savedPrompt = localStorage.getItem("system-prompt")
-      if (savedPrompt) setSystemPrompt(savedPrompt)
-
-      const savedTurns = localStorage.getItem("history-turns")
-      if (savedTurns) setHistoryTurns(parseInt(savedTurns))
-
-      const savedModel = localStorage.getItem("model")
-      if (savedModel) {
-        // If saved model has prefix (e.g. openai/gpt-4o), strip it to match our list IDs if needed, 
-        // OR rely on robust finding.
-        // For now, let's just trust it or clean it up if we want to force list compliance.
-        // But since we are switching to a selector, we usually want to match one of the items.
-        // Let's see if it matches any ID.
-        const header = savedModel.includes("/") ? savedModel.split("/")[1] : savedModel;
-        const exists = models.find(m => m.id === savedModel || m.id === header);
-        if (exists) {
-          setModel(exists.id);
-        }
+      if (!userId) {
+        setIsLoading(false)
+        return
       }
 
-      // 2. If user is signed in, fetch from backend and override if exists
-      if (userId) {
-        try {
-          const res = await fetch('/api/settings')
-          if (res.ok) {
-            const settings = await res.json()
-            if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
-            if (settings['history-turns']) setHistoryTurns(parseInt(settings['history-turns']))
-            if (settings['model']) setModel(settings['model'])
-          }
-        } catch (e) {
-          console.error("Failed to fetch settings from backend", e)
+      try {
+        // Batch get all AI config settings in one request
+        const res = await fetch('/api/settings?keys=system-prompt,history-turns,model')
+        if (res.ok) {
+          const settings = await res.json()
+          if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
+          if (settings['history-turns']) setHistoryTurns(parseInt(settings['history-turns']))
+          if (settings['model']) setModel(settings['model'])
         }
+      } catch (e) {
+        console.error("Failed to fetch settings from backend", e)
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -78,47 +62,52 @@ export function PromptPlayground() {
     }
   }, [userId, authLoaded])
 
-  // Save to local storage and backend on change
+  // Save to backend on change
   useEffect(() => {
-    localStorage.setItem("system-prompt", systemPrompt)
-    if (userId) {
+    if (userId && !isLoading) {
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'system-prompt', value: systemPrompt })
       })
     }
-  }, [systemPrompt, userId])
+  }, [systemPrompt, userId, isLoading])
 
   useEffect(() => {
-    localStorage.setItem("history-turns", historyTurns.toString())
-    if (userId) {
+    if (userId && !isLoading) {
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'history-turns', value: historyTurns.toString() })
       })
     }
-  }, [historyTurns, userId])
+  }, [historyTurns, userId, isLoading])
 
   useEffect(() => {
-    // Also save model
-    localStorage.setItem("model", model)
-    if (userId) {
+    if (userId && !isLoading) {
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'model', value: model })
       })
     }
-  }, [model, userId])
+  }, [model, userId, isLoading])
 
   const selectedModelData = models.find((m) => m.id === model) || models[0];
   const chefs = Array.from(new Set(models.map((model) => model.chef)));
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="h-screen w-full bg-background text-foreground overflow-hidden">
+    <div className="h-screen w-full bg-background text-foreground overflow-hidden relative">
+      {/* Loading overlay for initial config fetch */}
+      {isLoading && userId && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading configuration...</p>
+          </div>
+        </div>
+      )}
       <ResizablePanelGroup direction="horizontal">
         {/* Left Panel: Prompt Configuration */}
         <ResizablePanel defaultSize={30} minSize={20}>
