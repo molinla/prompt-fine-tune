@@ -1,10 +1,25 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { seedInitialTestCases } from "@/lib/seeder";
 
 export async function GET() {
     const { userId } = await auth();
     if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+
+    // Check if user has been seeded
+    const seededSetting = await prisma.userSetting.findUnique({
+        where: {
+            userId_key: {
+                userId,
+                key: 'seeded_initial_cases'
+            }
+        }
+    });
+
+    if (!seededSetting) {
+        await seedInitialTestCases(userId);
+    }
 
     const testCases = await prisma.testCase.findMany({
         where: { userId },

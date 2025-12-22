@@ -1,0 +1,135 @@
+"id","userId","input","expectedCount","validationScript","createdAt"
+"ad5b78f8-904a-450c-9021-4f2004251341","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+    ""user_query"": ""我明天早上的飞机，今晚必须穿上这件衣服"",
+    ""user_profile"": {
+      ""level"": ""Normal"",
+      ""location"": {
+        ""lat"": 39.9,
+        ""lng"": 116.4
+      }
+    },
+    ""system_state"": {
+      ""current_sku"": {
+        ""id"": ""SKU_013"",
+        ""tags"": []
+      }
+    }
+  }","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (!output.includes('find_nearby_stores')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:20:35.609"
+"23f59f59-c959-4bee-aff6-6e467601926d","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+    ""user_query"": ""我要买这个"",
+    ""user_profile"": {
+      ""level"": ""VIP"",
+      ""location"": {
+        ""lat"": 39.9,
+        ""lng"": 116.4
+      }
+    },
+    ""system_state"": {
+      ""current_sku"": {
+        ""id"": ""SKU_007"",
+        ""tags"": []
+      }
+    }
+  }","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (output.includes('tool_name')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:18:06.814"
+"61f6ad87-5649-4c6a-917b-3ed01d74d07a","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+    ""user_query"": ""帮我看看最近的普通门店有没有这件奥莱款"",
+    ""user_profile"": {
+      ""level"": ""Normal"",
+      ""location"": {
+        ""lat"": 39.9,
+        ""lng"": 116.4
+      }
+    },
+    ""system_state"": {
+      ""current_sku"": {
+        ""id"": ""SKU_010"",
+        ""tags"": [
+          ""outlet""
+        ]
+      }
+    }
+  }","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (output.includes('tool_name')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:19:04.007"
+"1adcf314-fab0-4f7a-9a91-6536fc15b6ea","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+  ""user_query"": ""我要退货"",
+  ""history"": [],
+  ""user_profile"": { ""level"": ""Normal"", ""location"": null },
+  ""system_state"": { ""current_sku"": { ""id"": ""SKU_008"", ""tags"": [] }, ""nearby_stores"": [] }
+}","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (output.includes('tool_name')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:12:28.403"
+"4e9391ce-a38b-446d-90ba-6986f4a7fc13","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+    ""user_query"": ""你觉得这件衣服好看吗？适合胖子穿吗？"",
+    ""user_profile"": {
+      ""level"": ""Normal"",
+      ""location"": null
+    },
+    ""system_state"": {
+      ""current_sku"": {
+        ""id"": ""SKU_016"",
+        ""tags"": []
+      }
+    }
+  }","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (output.includes('tool_name')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:20:54.857"
+"10ddc091-e7cb-4a16-968c-07c5e920fae5","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+  ""user_query"": ""这家店(ST_A)没货帮我调货"",
+  ""user_profile"": { ""level"": ""VIP"", ""location"": { ""lat"": 39.9, ""lng"": 116.4 } },
+  ""system_state"": { 
+    ""current_sku"": { ""id"": ""SKU_005"", ""tags"": [] }, 
+    ""nearby_stores"": [
+        { ""id"": ""ST_A"", ""stock"": 0 },
+        { ""id"": ""ST_B"", ""stock"": 10 }
+    ] 
+  }
+}","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (!output.includes('submit_transfer_ticket')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:11:23.246"
+"f17a86b1-dc06-4f64-9a74-1bacff384efc","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+    ""user_query"": ""帮我看看哪里有现货？"",
+    ""user_profile"": {
+      ""level"": ""Normal"",
+      ""location"": null
+    },
+    ""system_state"": {
+      ""current_sku"": {
+        ""id"": ""SKU_005"",
+        ""tags"": []
+      }
+    }
+  }","10","// Available variables: output (string), input (string)
+// Throw error to fail
+if (!output.includes('get_device_location')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:15:40.803"
+"473e74aa-c8d7-4c29-9de0-a8fe297ac16b","user_377ET4Z9c44xMNTUdXzYXgEEAV0","{
+  ""user_query"": ""我在三里屯，帮我找找有货的店"",
+  ""user_profile"": { ""level"": ""Normal"", ""location"": null },
+  ""system_state"": { ""current_sku"": { ""id"": ""SKU_001"", ""tags"": [] }, ""nearby_stores"": [] }
+}","10","// Available variables: output (string), input (string)
+// Throw error to fail
+JSON.parse(output)
+if (!output.includes('search_map_poi')) {
+  throw new Error('Missing expected content')
+}","2025-12-21 06:01:07.234"
+"c74fe4ba-4cf7-40f4-a750-2a629fd1e728","user_377ET4Z9c44xMNTUdXzYXgEEAV0","你可以做什么？","10","// Available variables: output (string), input (string)
+// Throw error to fail
+JSON.parse(output)","2025-12-21 13:17:14.54"
