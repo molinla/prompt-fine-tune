@@ -1,6 +1,6 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, UIMessage, convertToModelMessages } from 'ai';
+import { streamText, UIMessage, convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 
 export const runtime = 'edge';
 
@@ -86,36 +86,39 @@ export async function POST(req: Request) {
         throw new Error(`Dify API error: ${difyResponse.statusText}`);
       }
 
-      // Stream the response
-      const encoder = new TextEncoder();
-      const decoder = new TextDecoder();
-
-      const stream = new ReadableStream({
-        async start(controller) {
+      const stream = createUIMessageStream({
+        execute: async ({ writer }) => {
           const reader = difyResponse.body?.getReader();
           if (!reader) {
-            controller.close();
             return;
           }
 
+          const decoder = new TextDecoder();
           let buffer = '';
+          const textPartId = 'text-1';
+          let started = false;
+
+          const ensureStart = () => {
+            if (started) return;
+            started = true;
+            writer.write({ type: 'start' });
+            writer.write({ type: 'start-step' });
+            writer.write({ type: 'text-start', id: textPartId });
+          };
 
           try {
+            ensureStart();
+
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                if (buffer) {
-                   // Process any remaining buffer if needed, though usually valid SSE ends with empty line
-                }
                 break;
               }
 
-              // Decode with stream: true to handle multi-byte characters correctly across chunks
               const chunk = decoder.decode(value, { stream: true });
               buffer += chunk;
 
               const lines = buffer.split('\n');
-              // Keep the last line in buffer as it might be incomplete
               buffer = lines.pop() || '';
 
               for (const line of lines) {
@@ -128,32 +131,28 @@ export async function POST(req: Request) {
                 try {
                   const json = JSON.parse(data);
                   if (json.event === 'agent_message' || json.event === 'message') {
-                    // Format as AI SDK stream format
-                    // IMPORTANT: JSON.stringify to properly escape special characters and quotes
                     const textContent = json.answer || '';
                     if (textContent) {
-                         const streamData = `0:${JSON.stringify(textContent)}\n`;
-                         controller.enqueue(encoder.encode(streamData));
+                      writer.write({ type: 'text-delta', id: textPartId, delta: textContent });
                     }
                   }
                 } catch (e) {
-                  // Skip invalid JSON
+                  // 忽略无效的 JSON 分片
                 }
               }
             }
           } finally {
             reader.releaseLock();
-            controller.close();
+            if (started) {
+              writer.write({ type: 'text-end', id: textPartId });
+              writer.write({ type: 'finish-step' });
+              writer.write({ type: 'finish' });
+            }
           }
         },
       });
 
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'X-Vercel-AI-Data-Stream': 'v1',
-        },
-      });
+      return createUIMessageStreamResponse({ stream });
     } catch (error: any) {
       console.error('Dify API Error:', error);
       return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
