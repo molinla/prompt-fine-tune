@@ -7,6 +7,13 @@ export const models = [
     providers: ["openai"],
   },
   {
+    id: "custom-dify",
+    name: "Custom Dify",
+    chef: "Custom",
+    chefSlug: "dify",
+    providers: ["dify"],
+  },
+  {
     id: "openai/gpt-4o",
     name: "GPT-4o",
     chef: "OpenAI",

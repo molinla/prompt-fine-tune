@@ -108,6 +108,7 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
 }
 
 import { CustomModelConfig } from "./custom-model-settings"
+import { CustomDifyConfig } from "./custom-dify-settings"
 
 export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
     const userId = "default-user"
@@ -352,6 +353,8 @@ export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProp
                         customBaseUrl: customConfig?.baseUrl,
                         customApiKey: customConfig?.apiKey,
                         customModel: customConfig?.modelName,
+                        customDifyBaseUrl: customDifyConfig?.baseUrl,
+                        customDifyApiKey: customDifyConfig?.apiKey,
                     }),
                     signal: controller.signal
                 })

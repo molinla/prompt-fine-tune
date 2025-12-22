@@ -22,15 +22,17 @@ import {
 import { useState } from "react"
 
 import { CustomModelConfig } from "./custom-model-settings"; // Need to make sure this import path is correct or type is exported
+import { CustomDifyConfig } from "./custom-dify-settings";
 
 interface ChatPanelProps {
   systemPrompt: string
   model: string
   historyTurns: number
   customConfig?: CustomModelConfig
+  customDifyConfig?: CustomDifyConfig
 }
 
-export function ChatPanel({ systemPrompt, model, historyTurns, customConfig }: ChatPanelProps) {
+export function ChatPanel({ systemPrompt, model, historyTurns, customConfig, customDifyConfig }: ChatPanelProps) {
   const { messages, sendMessage, stop, status, setMessages } = useChat()
 
   const [input, setInput] = useState("")
@@ -52,6 +54,8 @@ export function ChatPanel({ systemPrompt, model, historyTurns, customConfig }: C
         customBaseUrl: customConfig?.baseUrl,
         customApiKey: customConfig?.apiKey,
         customModel: customConfig?.modelName,
+        customDifyBaseUrl: customDifyConfig?.baseUrl,
+        customDifyApiKey: customDifyConfig?.apiKey,
       }
     })
   }

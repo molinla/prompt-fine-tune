@@ -25,6 +25,7 @@ import {
 } from "@/components/ai-elements/model-selector"
 
 import { CustomModelSettings, type CustomModelConfig } from "./custom-model-settings"
+import { CustomDifySettings, type CustomDifyConfig } from "./custom-dify-settings"
 
 export function PromptPlayground() {
   const userId = "default-user"
@@ -34,11 +35,21 @@ export function PromptPlayground() {
   const [isLoading, setIsLoading] = useState(true)
   const [customConfig, setCustomConfig] = useState<CustomModelConfig | undefined>(undefined)
   const [isCustomSettingsOpen, setIsCustomSettingsOpen] = useState(false)
+  const [customDifyConfig, setCustomDifyConfig] = useState<CustomDifyConfig | undefined>(undefined)
+  const [isCustomDifySettingsOpen, setIsCustomDifySettingsOpen] = useState(false)
+  const [hasOpenRouterKey, setHasOpenRouterKey] = useState(false)
 
   // Load config from backend on mount (batch get)
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Check if OpenRouter key is configured
+        const openRouterRes = await fetch('/api/check-openrouter')
+        if (openRouterRes.ok) {
+          const { hasKey } = await openRouterRes.json()
+          setHasOpenRouterKey(hasKey)
+        }
+
         // Batch get all AI config settings in one request
         const res = await fetch('/api/settings?keys=system-prompt,history-turns,model,custom-openai-config')
         if (res.ok) {
@@ -98,8 +109,14 @@ export function PromptPlayground() {
     }
   }, [model, isLoading])
 
-  const selectedModelData = models.find((m) => m.id === model) || models[0];
-  const chefs = Array.from(new Set(models.map((model) => model.chef)));
+  // Filter models: always show Custom models, conditionally show others based on OpenRouter key
+  const filteredModels = models.filter((m) => {
+    if (m.chef === "Custom") return true; // Always show Custom OpenAI and Custom Dify
+    return hasOpenRouterKey; // Only show OpenRouter models if key is configured
+  });
+
+  const selectedModelData = filteredModels.find((m) => m.id === model) || filteredModels[0];
+  const chefs = Array.from(new Set(filteredModels.map((model) => model.chef)));
   const [open, setOpen] = useState(false);
 
   return (
@@ -144,7 +161,7 @@ export function PromptPlayground() {
                         <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
                         {chefs.map((chef) => (
                           <ModelSelectorGroup heading={chef} key={chef}>
-                            {models
+                            {filteredModels
                               .filter((model) => model.chef === chef)
                               .map((modelItem) => (
                                 <ModelSelectorItem
@@ -184,6 +201,14 @@ export function PromptPlayground() {
                       onConfigChange={setCustomConfig}
                       open={isCustomSettingsOpen}
                       onOpenChange={setIsCustomSettingsOpen}
+                    />
+                  )}
+                  {model === 'custom-dify' && (
+                    <CustomDifySettings
+                      config={customDifyConfig}
+                      onConfigChange={setCustomDifyConfig}
+                      open={isCustomDifySettingsOpen}
+                      onOpenChange={setIsCustomDifySettingsOpen}
                     />
                   )}
                 </div>
@@ -234,6 +259,7 @@ export function PromptPlayground() {
                   model={model}
                   historyTurns={historyTurns}
                   customConfig={customConfig}
+                  customDifyConfig={customDifyConfig}
                 />
               </TabsContent>
 
@@ -242,6 +268,7 @@ export function PromptPlayground() {
                   systemPrompt={systemPrompt}
                   model={model}
                   customConfig={customConfig}
+                  customDifyConfig={customDifyConfig}
                 />
               </TabsContent>
             </Tabs>
