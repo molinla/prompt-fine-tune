@@ -28,24 +28,12 @@ export async function seedInitialTestCases(userId: string) {
       validationScript: record.validationScript || null,
     }));
 
-    // Transaction to update user setting and insert test cases
-    await prisma.$transaction(async (tx: any) => {
-        // 1. Mark as seeded
-        await tx.userSetting.create({
-            data: {
-                userId,
-                key: 'seeded_initial_cases',
-                value: 'true'
-            }
-        });
-
-        // 2. Insert test cases
-        if (testCasesToCreate.length > 0) {
-            await tx.testCase.createMany({
-                data: testCasesToCreate
-            });
-        }
-    });
+    // Insert test cases
+    if (testCasesToCreate.length > 0) {
+      await prisma.testCase.createMany({
+        data: testCasesToCreate,
+      });
+    }
   } catch (error) {
     console.error("Failed to seed initial test cases:", error);
     // We swallow the error to not block the user from seeing their (empty) list,

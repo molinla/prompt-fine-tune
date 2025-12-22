@@ -7,21 +7,7 @@ export async function GET() {
     const { userId } = await auth();
     if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-    // Check if user has been seeded
-    const seededSetting = await prisma.userSetting.findUnique({
-        where: {
-            userId_key: {
-                userId,
-                key: 'seeded_initial_cases'
-            }
-        }
-    });
-
-    if (!seededSetting) {
-        await seedInitialTestCases(userId);
-    }
-
-    const testCases = await prisma.testCase.findMany({
+    let testCases = await prisma.testCase.findMany({
         where: { userId },
         include: {
             history: {
@@ -30,6 +16,20 @@ export async function GET() {
         },
         orderBy: { createdAt: 'asc' }
     });
+
+    if (testCases.length === 0) {
+        await seedInitialTestCases(userId);
+
+        testCases = await prisma.testCase.findMany({
+            where: { userId },
+            include: {
+                history: {
+                    orderBy: { timestamp: 'asc' }
+                }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+    }
 
     return NextResponse.json(testCases);
 }
