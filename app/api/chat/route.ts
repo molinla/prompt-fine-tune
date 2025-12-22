@@ -4,8 +4,40 @@ import { streamText, UIMessage, convertToModelMessages } from 'ai';
 
 export const runtime = 'edge';
 
+const normalizeHistoryTurns = (value: unknown) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 1;
+  return Math.max(0, Math.floor(value));
+};
+
+const trimMessagesByTurns = (allMessages: UIMessage[], historyTurns: number) => {
+  if (!allMessages.length) return [];
+
+  // historyTurns = 0 时仅保留最后一条用户消息
+  if (historyTurns <= 0) {
+    for (let i = allMessages.length - 1; i >= 0; i -= 1) {
+      if (allMessages[i].role === 'user') return [allMessages[i]];
+    }
+    return [];
+  }
+
+  let userCount = 0;
+  let startIndex = 0;
+  for (let i = allMessages.length - 1; i >= 0; i -= 1) {
+    if (allMessages[i].role === 'user') {
+      userCount += 1;
+      if (userCount >= historyTurns) {
+        startIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (userCount === 0) return [];
+  return allMessages.slice(startIndex);
+};
+
 export async function POST(req: Request) {
-  const { messages = [], model = 'openai/gpt-4o-mini', system = '', historyTurns = 5, customBaseUrl, customApiKey, customModel }: {
+  const { messages = [], model = 'openai/gpt-4o-mini', system = '', historyTurns = 1, customBaseUrl, customApiKey, customModel }: {
     messages: UIMessage[],
     model: string,
     system: string,
@@ -33,10 +65,13 @@ export async function POST(req: Request) {
 
 
   try {
+    const safeHistoryTurns = normalizeHistoryTurns(historyTurns);
+    const trimmedMessages = trimMessagesByTurns(messages, safeHistoryTurns);
+
     const result = streamText({
       model: modelProvider,
       system,
-      messages: convertToModelMessages(messages.slice(-(historyTurns * 2 + 1))),
+      messages: convertToModelMessages(trimmedMessages),
       temperature: 0,
       topP: 0,
     });

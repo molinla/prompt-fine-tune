@@ -31,7 +31,7 @@ import { CustomModelSettings, type CustomModelConfig } from "./custom-model-sett
 export function PromptPlayground() {
   const { userId, isLoaded: authLoaded } = useAuth()
   const [systemPrompt, setSystemPrompt] = useState("")
-  const [historyTurns, setHistoryTurns] = useState(5)
+  const [historyTurns, setHistoryTurns] = useState(1)
   const [model, setModel] = useState("gpt-4o-mini")
   const [isLoading, setIsLoading] = useState(true)
   const [customConfig, setCustomConfig] = useState<CustomModelConfig | undefined>(undefined)
@@ -51,7 +51,10 @@ export function PromptPlayground() {
         if (res.ok) {
           const settings = await res.json()
           if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
-          if (settings['history-turns']) setHistoryTurns(parseInt(settings['history-turns']))
+          if (settings['history-turns']) {
+            const parsedTurns = parseInt(settings['history-turns'])
+            setHistoryTurns(Number.isFinite(parsedTurns) ? parsedTurns : 1)
+          }
           if (settings['model']) setModel(settings['model'])
         }
       } catch (e) {
