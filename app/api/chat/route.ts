@@ -37,16 +37,133 @@ const trimMessagesByTurns = (allMessages: UIMessage[], historyTurns: number) => 
 };
 
 export async function POST(req: Request) {
-  const { messages = [], model = 'openai/gpt-4o-mini', system = '', historyTurns = 1, customBaseUrl, customApiKey, customModel }: {
+  const { messages = [], model = 'openai/gpt-4o-mini', system = '', historyTurns = 1, customBaseUrl, customApiKey, customModel, customDifyBaseUrl, customDifyApiKey }: {
     messages: UIMessage[],
     model: string,
     system: string,
     historyTurns: number,
     customBaseUrl?: string,
     customApiKey?: string,
-    customModel?: string
+    customModel?: string,
+    customDifyBaseUrl?: string,
+    customDifyApiKey?: string
   } = await req.json();
 
+  // Handle Dify API
+  if (model === 'custom-dify' && customDifyBaseUrl && customDifyApiKey) {
+    try {
+      const safeHistoryTurns = normalizeHistoryTurns(historyTurns);
+      const trimmedMessages = trimMessagesByTurns(messages, safeHistoryTurns);
+
+      // Get the last user message
+      const lastUserMessage = trimmedMessages.filter(m => m.role === 'user').pop();
+      if (!lastUserMessage) {
+        return new Response(JSON.stringify({ error: 'No user message found' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Extract text from message
+      const query = lastUserMessage.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || '';
+
+      // Call Dify API
+      const difyResponse = await fetch(`${customDifyBaseUrl}/chat-messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${customDifyApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: {},
+          query,
+          response_mode: 'streaming',
+          user: 'default-user',
+        }),
+      });
+
+      if (!difyResponse.ok) {
+        throw new Error(`Dify API error: ${difyResponse.statusText}`);
+      }
+
+      // Stream the response
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const reader = difyResponse.body?.getReader();
+          if (!reader) {
+            controller.close();
+            return;
+          }
+
+          let buffer = '';
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                if (buffer) {
+                   // Process any remaining buffer if needed, though usually valid SSE ends with empty line
+                }
+                break;
+              }
+
+              // Decode with stream: true to handle multi-byte characters correctly across chunks
+              const chunk = decoder.decode(value, { stream: true });
+              buffer += chunk;
+
+              const lines = buffer.split('\n');
+              // Keep the last line in buffer as it might be incomplete
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine.startsWith('data:')) continue;
+
+                const data = trimmedLine.replace(/^data:\s*/, '');
+                if (data === '[DONE]') continue;
+
+                try {
+                  const json = JSON.parse(data);
+                  if (json.event === 'agent_message' || json.event === 'message') {
+                    // Format as AI SDK stream format
+                    // IMPORTANT: JSON.stringify to properly escape special characters and quotes
+                    const textContent = json.answer || '';
+                    if (textContent) {
+                         const streamData = `0:${JSON.stringify(textContent)}\n`;
+                         controller.enqueue(encoder.encode(streamData));
+                    }
+                  }
+                } catch (e) {
+                  // Skip invalid JSON
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'X-Vercel-AI-Data-Stream': 'v1',
+        },
+      });
+    } catch (error: any) {
+      console.error('Dify API Error:', error);
+      return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
+  // Handle Custom OpenAI or OpenRouter
   let modelProvider;
 
   if (model === 'custom-openai' && customBaseUrl && customApiKey && customModel) {
