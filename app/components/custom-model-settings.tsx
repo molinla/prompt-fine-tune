@@ -20,42 +20,46 @@ export interface CustomModelConfig {
 }
 
 interface CustomModelSettingsProps {
+  config?: CustomModelConfig
   onConfigChange: (config: CustomModelConfig) => void
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function CustomModelSettings({ onConfigChange, open, onOpenChange }: CustomModelSettingsProps) {
+export function CustomModelSettings({ config, onConfigChange, open, onOpenChange }: CustomModelSettingsProps) {
   const [baseUrl, setBaseUrl] = useState("")
   const [apiKey, setApiKey] = useState("")
   const [modelName, setModelName] = useState("")
 
   useEffect(() => {
-    // Load from local storage on mount
-    const savedConfig = localStorage.getItem("custom-openai-config")
-    if (savedConfig) {
-      try {
-        const config = JSON.parse(savedConfig)
-        setBaseUrl(config.baseUrl || "")
-        setApiKey(config.apiKey || "")
-        setModelName(config.modelName || "")
-        onConfigChange(config)
-      } catch (e) {
-        console.error("Failed to parse saved custom model config", e)
-      }
+    if (open && config) {
+      setBaseUrl(config.baseUrl || "")
+      setApiKey(config.apiKey || "")
+      setModelName(config.modelName || "")
     }
-  }, []) // Empty dependency array to run only once on mount
+  }, [open, config])
 
-  const handleSave = () => {
-    const config: CustomModelConfig = {
+  const handleSave = async () => {
+    const newConfig: CustomModelConfig = {
       baseUrl,
       apiKey,
       modelName,
     }
-    localStorage.setItem("custom-openai-config", JSON.stringify(config))
-    onConfigChange(config)
-    onConfigChange(config)
-    onOpenChange(false)
+
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'custom-openai-config',
+          value: JSON.stringify(newConfig)
+        })
+      })
+      onConfigChange(newConfig)
+      onOpenChange(false)
+    } catch (e) {
+      console.error("Failed to save custom model config", e)
+    }
   }
 
   return (
@@ -69,7 +73,7 @@ export function CustomModelSettings({ onConfigChange, open, onOpenChange }: Cust
         <DialogHeader>
           <DialogTitle>Custom OpenAI Settings</DialogTitle>
           <DialogDescription>
-            Configure your custom OpenAI-compatible model details here. These are saved locally in your browser.
+            Configure your custom OpenAI-compatible model details here. These are saved in your settings.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/button"
 import { CheckIcon, Loader2 } from "lucide-react"
 import { ChatPanel } from "./chat-panel"
 import { BatchPanel } from "./batch-panel"
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
-import { useAuth } from "@clerk/nextjs"
 import { models } from "./model-data"
 import {
   ModelSelector,
@@ -29,7 +27,7 @@ import {
 import { CustomModelSettings, type CustomModelConfig } from "./custom-model-settings"
 
 export function PromptPlayground() {
-  const { userId, isLoaded: authLoaded } = useAuth()
+  const userId = "default-user"
   const [systemPrompt, setSystemPrompt] = useState("")
   const [historyTurns, setHistoryTurns] = useState(1)
   const [model, setModel] = useState("gpt-4o-mini")
@@ -40,14 +38,9 @@ export function PromptPlayground() {
   // Load config from backend on mount (batch get)
   useEffect(() => {
     const loadData = async () => {
-      if (!userId) {
-        setIsLoading(false)
-        return
-      }
-
       try {
         // Batch get all AI config settings in one request
-        const res = await fetch('/api/settings?keys=system-prompt,history-turns,model')
+        const res = await fetch('/api/settings?keys=system-prompt,history-turns,model,custom-openai-config')
         if (res.ok) {
           const settings = await res.json()
           if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
@@ -56,6 +49,13 @@ export function PromptPlayground() {
             setHistoryTurns(Number.isFinite(parsedTurns) ? parsedTurns : 1)
           }
           if (settings['model']) setModel(settings['model'])
+          if (settings['custom-openai-config']) {
+            try {
+              setCustomConfig(JSON.parse(settings['custom-openai-config']))
+            } catch (e) {
+              console.error("Failed to parse custom-openai-config", e)
+            }
+          }
         }
       } catch (e) {
         console.error("Failed to fetch settings from backend", e)
@@ -64,41 +64,39 @@ export function PromptPlayground() {
       }
     }
 
-    if (authLoaded) {
-      loadData()
-    }
-  }, [userId, authLoaded])
+    loadData()
+  }, [])
 
   // Save to backend on change
   useEffect(() => {
-    if (userId && !isLoading) {
+    if (!isLoading) {
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'system-prompt', value: systemPrompt })
       })
     }
-  }, [systemPrompt, userId, isLoading])
+  }, [systemPrompt, isLoading])
 
   useEffect(() => {
-    if (userId && !isLoading) {
+    if (!isLoading) {
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'history-turns', value: historyTurns.toString() })
       })
     }
-  }, [historyTurns, userId, isLoading])
+  }, [historyTurns, isLoading])
 
   useEffect(() => {
-    if (userId && !isLoading) {
+    if (!isLoading) {
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'model', value: model })
       })
     }
-  }, [model, userId, isLoading])
+  }, [model, isLoading])
 
   const selectedModelData = models.find((m) => m.id === model) || models[0];
   const chefs = Array.from(new Set(models.map((model) => model.chef)));
@@ -107,7 +105,7 @@ export function PromptPlayground() {
   return (
     <div className="h-screen w-full bg-background text-foreground overflow-hidden relative">
       {/* Loading overlay for initial config fetch */}
-      {isLoading && userId && (
+      {isLoading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -121,16 +119,6 @@ export function PromptPlayground() {
           <div className="flex flex-col h-full p-4 border-r gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">Prompt Config</h2>
-              <div>
-                <SignedOut>
-                  <SignInButton mode="modal">
-                    <Button variant="outline" size="sm">Sign In</Button>
-                  </SignInButton>
-                </SignedOut>
-                <SignedIn>
-                  <UserButton appearance={{ elements: { userButtonAvatarBox: "size-8" } }} />
-                </SignedIn>
-              </div>
             </div>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
@@ -192,6 +180,7 @@ export function PromptPlayground() {
                 </div>
                 {model === 'custom-openai' && (
                     <CustomModelSettings
+                      config={customConfig}
                       onConfigChange={setCustomConfig}
                       open={isCustomSettingsOpen}
                       onOpenChange={setIsCustomSettingsOpen}

@@ -1,11 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { seedInitialTestCases } from "@/lib/seeder";
 
 export async function GET() {
-    const { userId } = await auth();
-    if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+    const userId = "default-user";
 
     let testCases = await prisma.testCase.findMany({
         where: { userId },
@@ -35,8 +33,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-    const { userId } = await auth();
-    if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+    const userId = "default-user";
 
     const data = await req.json();
 

@@ -51,7 +51,6 @@ if (!output.includes('expected')) {
   throw new Error('Missing expected content')
 }`
 
-const STORAGE_KEY = "batch-test-cases"
 
 // TrendChart component using shadcn chart
 const chartConfig = {
@@ -108,11 +107,11 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
     )
 }
 
-import { useAuth } from "@clerk/nextjs"
 import { CustomModelConfig } from "./custom-model-settings"
 
 export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
-    const { userId, isLoaded: authLoaded } = useAuth()
+    const userId = "default-user"
+    const authLoaded = true
     const [testCases, setTestCases] = useState<TestCase[]>([])
     const [results, setResults] = useState<Record<string, TestResult>>({})
     const [isRunning, setIsRunning] = useState(false)
@@ -128,51 +127,28 @@ export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProp
     const [isAdding, setIsAdding] = useState(false)
     const [isDeletingId, setIsDeletingId] = useState<string | null>(null)
 
-    // Load from local storage or backend on mount
+    // Load from backend on mount
     useEffect(() => {
         const loadData = async () => {
             setIsFetching(true)
-            // 1. Try backend first if signed in
-            if (userId) {
-                try {
-                    const res = await fetch('/api/test-cases')
-                    if (res.ok) {
-                        const data = await res.json()
-                        setTestCases(data)
-                        setIsLoaded(true)
-                        setIsFetching(false)
-                        return
-                    }
-                } catch (e) {
-                    console.error("Failed to load test cases from backend", e)
-                }
-            }
-
-            // 2. Fallback to localStorage
             try {
-                const saved = localStorage.getItem(STORAGE_KEY)
-                if (saved) {
-                    setTestCases(JSON.parse(saved))
+                const res = await fetch('/api/test-cases')
+                if (res.ok) {
+                    const data = await res.json()
+                    setTestCases(data)
                 }
             } catch (e) {
-                console.error("Failed to load batch test cases from localStorage", e)
+                console.error("Failed to load test cases from backend", e)
             } finally {
                 setIsLoaded(true)
                 setIsFetching(false)
             }
         }
 
-        if (authLoaded) {
-            loadData()
-        }
-    }, [userId, authLoaded])
+        loadData()
+    }, [])
 
-    // Save to local storage on change (still useful as backup/offline)
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(testCases))
-        }
-    }, [testCases, isLoaded])
+    // Remove save to local storage effect
 
     const addTestCase = async () => {
         setIsAdding(true)
