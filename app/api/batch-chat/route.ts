@@ -31,6 +31,7 @@ export async function POST(req: Request) {
         : (Array.isArray(lastUserMessage.content)
             ? lastUserMessage.content.filter(p => p.type === 'text').map(p => p.text).join('')
             : '');
+      const combinedQuery = [system, query].filter(Boolean).join('\n\n');
 
       // Call Dify API in blocking mode
       const difyResponse = await fetch(`${customDifyBaseUrl}/chat-messages`, {
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           inputs: {},
-          query,
+          query: combinedQuery,
           response_mode: 'blocking',
           user: 'default-user',
         }),

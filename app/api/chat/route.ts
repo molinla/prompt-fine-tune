@@ -66,6 +66,7 @@ export async function POST(req: Request) {
 
       // Extract text from message
       const query = lastUserMessage.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || '';
+      const combinedQuery = [system, query].filter(Boolean).join('\n\n');
 
       // Call Dify API
       const difyResponse = await fetch(`${customDifyBaseUrl}/chat-messages`, {
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           inputs: {},
-          query,
+          query: combinedQuery,
           response_mode: 'streaming',
           user: 'default-user',
         }),
