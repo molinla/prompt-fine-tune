@@ -26,12 +26,16 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector"
 
+import { CustomModelSettings, type CustomModelConfig } from "./custom-model-settings"
+
 export function PromptPlayground() {
   const { userId, isLoaded: authLoaded } = useAuth()
   const [systemPrompt, setSystemPrompt] = useState("")
-  const [historyTurns, setHistoryTurns] = useState(5)
+  const [historyTurns, setHistoryTurns] = useState(1)
   const [model, setModel] = useState("gpt-4o-mini")
   const [isLoading, setIsLoading] = useState(true)
+  const [customConfig, setCustomConfig] = useState<CustomModelConfig | undefined>(undefined)
+  const [isCustomSettingsOpen, setIsCustomSettingsOpen] = useState(false)
 
   // Load config from backend on mount (batch get)
   useEffect(() => {
@@ -47,7 +51,10 @@ export function PromptPlayground() {
         if (res.ok) {
           const settings = await res.json()
           if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
-          if (settings['history-turns']) setHistoryTurns(parseInt(settings['history-turns']))
+          if (settings['history-turns']) {
+            const parsedTurns = parseInt(settings['history-turns'])
+            setHistoryTurns(Number.isFinite(parsedTurns) ? parsedTurns : 1)
+          }
           if (settings['model']) setModel(settings['model'])
         }
       } catch (e) {
@@ -125,61 +132,72 @@ export function PromptPlayground() {
                 </SignedIn>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <label className="font-medium text-sm">Model</label>
-                <ModelSelector onOpenChange={setOpen} open={open}>
-                  <ModelSelectorTrigger asChild>
-                    <Button className="w-full justify-between font-normal px-2" variant="outline">
-                      <div className="flex items-center gap-2 truncate">
-                        {selectedModelData?.chefSlug && (
-                          <ModelSelectorLogo provider={selectedModelData.chefSlug} />
-                        )}
-                        {selectedModelData?.name && (
-                          <ModelSelectorName className="truncate">{selectedModelData.name}</ModelSelectorName>
-                        )}
-                      </div>
-                    </Button>
-                  </ModelSelectorTrigger>
-                  <ModelSelectorContent>
-                    <ModelSelectorInput placeholder="Search models..." />
-                    <ModelSelectorList>
-                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                      {chefs.map((chef) => (
-                        <ModelSelectorGroup heading={chef} key={chef}>
-                          {models
-                            .filter((model) => model.chef === chef)
-                            .map((modelItem) => (
-                              <ModelSelectorItem
-                                key={modelItem.id}
-                                onSelect={() => {
-                                  setModel(modelItem.id);
-                                  setOpen(false);
-                                }}
-                                value={modelItem.id}
-                              >
-                                <ModelSelectorLogo provider={modelItem.chefSlug} />
-                                <ModelSelectorName>{modelItem.name}</ModelSelectorName>
-                                <ModelSelectorLogoGroup>
-                                  {modelItem.providers.map((provider) => (
-                                    <ModelSelectorLogo
-                                      key={provider}
-                                      provider={provider}
-                                    />
-                                  ))}
-                                </ModelSelectorLogoGroup>
-                                {model === modelItem.id ? (
-                                  <CheckIcon className="ml-auto size-4" />
-                                ) : (
-                                  <div className="ml-auto size-4" />
-                                )}
-                              </ModelSelectorItem>
-                            ))}
-                        </ModelSelectorGroup>
-                      ))}
-                    </ModelSelectorList>
-                  </ModelSelectorContent>
-                </ModelSelector>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1 min-w-0">
+                    <ModelSelector onOpenChange={setOpen} open={open}>
+                      <ModelSelectorTrigger asChild>
+                        <Button className="w-full justify-between font-normal px-2" variant="outline">
+                          <div className="flex items-center gap-2 truncate">
+                            {selectedModelData?.chefSlug && (
+                              <ModelSelectorLogo provider={selectedModelData.chefSlug} />
+                            )}
+                            {selectedModelData?.name && (
+                              <ModelSelectorName className="truncate">{selectedModelData.name}</ModelSelectorName>
+                            )}
+                          </div>
+                        </Button>
+                      </ModelSelectorTrigger>
+                    <ModelSelectorContent>
+                      <ModelSelectorInput placeholder="Search models..." />
+                      <ModelSelectorList>
+                        <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                        {chefs.map((chef) => (
+                          <ModelSelectorGroup heading={chef} key={chef}>
+                            {models
+                              .filter((model) => model.chef === chef)
+                              .map((modelItem) => (
+                                <ModelSelectorItem
+                                  key={modelItem.id}
+                                  onSelect={() => {
+                                    setModel(modelItem.id);
+                                    setOpen(false);
+                                  }}
+                                  value={modelItem.id}
+                                >
+                                  <ModelSelectorLogo provider={modelItem.chefSlug} />
+                                  <ModelSelectorName>{modelItem.name}</ModelSelectorName>
+                                  <ModelSelectorLogoGroup>
+                                    {modelItem.providers.map((provider) => (
+                                      <ModelSelectorLogo
+                                        key={provider}
+                                        provider={provider}
+                                      />
+                                    ))}
+                                  </ModelSelectorLogoGroup>
+                                  {model === modelItem.id ? (
+                                    <CheckIcon className="ml-auto size-4" />
+                                  ) : (
+                                    <div className="ml-auto size-4" />
+                                  )}
+                                </ModelSelectorItem>
+                              ))}
+                          </ModelSelectorGroup>
+                        ))}
+                      </ModelSelectorList>
+                    </ModelSelectorContent>
+                  </ModelSelector>
+                </div>
+                {model === 'custom-openai' && (
+                    <CustomModelSettings
+                      onConfigChange={setCustomConfig}
+                      open={isCustomSettingsOpen}
+                      onOpenChange={setIsCustomSettingsOpen}
+                    />
+                  )}
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="font-medium text-sm">History Turns</label>
@@ -222,10 +240,11 @@ export function PromptPlayground() {
               <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
                 <ChatPanel
                   systemPrompt={systemPrompt}
-                  // If the backend expects "openai/gpt-4o", and we only have "gpt-4o", 
+                  // If the backend expects "openai/gpt-4o", and we only have "gpt-4o",
                   // we might need to map it. For now, passing ID as is.
                   model={model}
                   historyTurns={historyTurns}
+                  customConfig={customConfig}
                 />
               </TabsContent>
 
@@ -233,6 +252,7 @@ export function PromptPlayground() {
                 <BatchPanel
                   systemPrompt={systemPrompt}
                   model={model}
+                  customConfig={customConfig}
                 />
               </TabsContent>
             </Tabs>
