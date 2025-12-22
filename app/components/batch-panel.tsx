@@ -78,6 +78,14 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
         timestamp: h.timestamp,
     }))
 
+    if (data.length === 1) {
+        data.push({
+            index: data[0].index + 1,
+            successRate: data[0].successRate,
+            timestamp: data[0].timestamp,
+        })
+    }
+
     // Calculate average for dynamic color
     const avgRate = data.reduce((a, b) => a + b.successRate, 0) / data.length
     const color = avgRate >= 90 ? '#22c55e' : avgRate >= 50 ? '#eab308' : '#ef4444'
@@ -661,7 +669,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
     }
 
     return (
-        <div className="flex flex-col h-full bg-background animate-in slide-in-from-right-4 duration-200">
+        <div className="flex flex-col h-full bg-background">
             <div className="flex items-center gap-2 p-4 border-b">
                 <Button variant="ghost" size="icon" onClick={exitLayer2} className="-ml-2">
                     <ArrowLeft className="h-4 w-4" />
@@ -679,7 +687,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                 <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-6 h-full">
 
                     {/* LEFT COLUMN: Input & Settings */}
-                    <div className="flex flex-col pt-4 lg:pt-0 gap-6 pr-2 h-full">
+                    <div className="flex flex-col pt-4 pb-6 lg:pt-0 gap-6 pr-2 h-full">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Input Prompt</label>
                             <Textarea
@@ -715,7 +723,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                             <Textarea
                                 value={editingCase?.validationScript || DEFAULT_VALIDATION_SCRIPT}
                                 onChange={(e) => updateTestCase(activeTestCaseId!, { validationScript: e.target.value })}
-                                className="font-mono text-xs h-[120px] bg-slate-50 dark:bg-slate-950"
+                                className="font-mono text-xs h-[120px]  dark:bg-slate-950"
                                 placeholder="// function(output, input) { ... }"
                             />
                             <p className="text-[10px] text-muted-foreground">
@@ -723,10 +731,10 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                             </p>
                         </div>
 
-                        <div className="pt-4 mt-auto">
+                        <div className="pt-4 mt-auto sticky bottom-0">
                             {results[activeTestCaseId!]?.status === 'running' ? (
                                 <Button
-                                    className="w-full"
+                                    className="w-full shadow-xl shadow-white"
                                     size="lg"
                                     variant="destructive"
                                     onClick={() => terminateTest(activeTestCaseId!)}
@@ -735,7 +743,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                                 </Button>
                             ) : (
                                 <Button
-                                    className="w-full"
+                                    className="w-full shadow-xl shadow-white"
                                     size="lg"
                                     onClick={() => editingCase && runSingleTest(editingCase)}
                                 >
