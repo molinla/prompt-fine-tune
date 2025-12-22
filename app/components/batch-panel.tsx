@@ -43,6 +43,8 @@ interface TestResult {
 interface BatchPanelProps {
     systemPrompt: string
     model: string
+    topP?: number
+    temperature?: number
 }
 
 const DEFAULT_VALIDATION_SCRIPT = `// Available variables: output (string), input (string)
@@ -111,7 +113,7 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
 import { useAuth } from "@clerk/nextjs"
 import { CustomModelConfig } from "./custom-model-settings"
 
-export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
+export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temperature = 1 }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
     const { userId, isLoaded: authLoaded } = useAuth()
     const [testCases, setTestCases] = useState<TestCase[]>([])
     const [results, setResults] = useState<Record<string, TestResult>>({})
@@ -178,7 +180,7 @@ export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProp
         setIsAdding(true)
         const newCase: Partial<TestCase> = {
             input: "",
-            expectedCount: 5,
+            expectedCount: 10,
         }
 
         try {
@@ -203,7 +205,7 @@ export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProp
             setTestCases([...testCases, {
                 id: crypto.randomUUID(),
                 input: "",
-                expectedCount: 5,
+                expectedCount: 10,
                 history: []
             }])
         } finally {
@@ -376,6 +378,8 @@ export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProp
                         customBaseUrl: customConfig?.baseUrl,
                         customApiKey: customConfig?.apiKey,
                         customModel: customConfig?.modelName,
+                        topP,
+                        temperature,
                     }),
                     signal: controller.signal
                 })

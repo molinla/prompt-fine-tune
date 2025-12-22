@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Slider } from "@/components/ui/slider"
 import { CheckIcon, Loader2 } from "lucide-react"
 import { ChatPanel } from "./chat-panel"
 import { BatchPanel } from "./batch-panel"
@@ -33,6 +34,8 @@ export function PromptPlayground() {
   const [systemPrompt, setSystemPrompt] = useState("")
   const [historyTurns, setHistoryTurns] = useState(1)
   const [model, setModel] = useState("gpt-4o-mini")
+  const [topP, setTopP] = useState(0)
+  const [temperature, setTemperature] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [customConfig, setCustomConfig] = useState<CustomModelConfig | undefined>(undefined)
   const [isCustomSettingsOpen, setIsCustomSettingsOpen] = useState(false)
@@ -47,7 +50,7 @@ export function PromptPlayground() {
 
       try {
         // Batch get all AI config settings in one request
-        const res = await fetch('/api/settings?keys=system-prompt,history-turns,model')
+        const res = await fetch('/api/settings?keys=system-prompt,history-turns,model,top-p,temperature')
         if (res.ok) {
           const settings = await res.json()
           if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
@@ -56,6 +59,14 @@ export function PromptPlayground() {
             setHistoryTurns(Number.isFinite(parsedTurns) ? parsedTurns : 1)
           }
           if (settings['model']) setModel(settings['model'])
+          if (settings['top-p']) {
+            const parsedTopP = parseFloat(settings['top-p'])
+            setTopP(Number.isFinite(parsedTopP) ? parsedTopP : 1)
+          }
+          if (settings['temperature']) {
+            const parsedTemp = parseFloat(settings['temperature'])
+            setTemperature(Number.isFinite(parsedTemp) ? parsedTemp : 1)
+          }
         }
       } catch (e) {
         console.error("Failed to fetch settings from backend", e)
@@ -99,6 +110,26 @@ export function PromptPlayground() {
       })
     }
   }, [model, userId, isLoading])
+
+  useEffect(() => {
+    if (userId && !isLoading) {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'top-p', value: topP.toString() })
+      })
+    }
+  }, [topP, userId, isLoading])
+
+  useEffect(() => {
+    if (userId && !isLoading) {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'temperature', value: temperature.toString() })
+      })
+    }
+  }, [temperature, userId, isLoading])
 
   const selectedModelData = models.find((m) => m.id === model) || models[0];
   const chefs = Array.from(new Set(models.map((model) => model.chef)));
@@ -150,47 +181,47 @@ export function PromptPlayground() {
                           </div>
                         </Button>
                       </ModelSelectorTrigger>
-                    <ModelSelectorContent>
-                      <ModelSelectorInput placeholder="Search models..." />
-                      <ModelSelectorList>
-                        <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                        {chefs.map((chef) => (
-                          <ModelSelectorGroup heading={chef} key={chef}>
-                            {models
-                              .filter((model) => model.chef === chef)
-                              .map((modelItem) => (
-                                <ModelSelectorItem
-                                  key={modelItem.id}
-                                  onSelect={() => {
-                                    setModel(modelItem.id);
-                                    setOpen(false);
-                                  }}
-                                  value={modelItem.id}
-                                >
-                                  <ModelSelectorLogo provider={modelItem.chefSlug} />
-                                  <ModelSelectorName>{modelItem.name}</ModelSelectorName>
-                                  <ModelSelectorLogoGroup>
-                                    {modelItem.providers.map((provider) => (
-                                      <ModelSelectorLogo
-                                        key={provider}
-                                        provider={provider}
-                                      />
-                                    ))}
-                                  </ModelSelectorLogoGroup>
-                                  {model === modelItem.id ? (
-                                    <CheckIcon className="ml-auto size-4" />
-                                  ) : (
-                                    <div className="ml-auto size-4" />
-                                  )}
-                                </ModelSelectorItem>
-                              ))}
-                          </ModelSelectorGroup>
-                        ))}
-                      </ModelSelectorList>
-                    </ModelSelectorContent>
-                  </ModelSelector>
-                </div>
-                {model === 'custom-openai' && (
+                      <ModelSelectorContent>
+                        <ModelSelectorInput placeholder="Search models..." />
+                        <ModelSelectorList>
+                          <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                          {chefs.map((chef) => (
+                            <ModelSelectorGroup heading={chef} key={chef}>
+                              {models
+                                .filter((model) => model.chef === chef)
+                                .map((modelItem) => (
+                                  <ModelSelectorItem
+                                    key={modelItem.id}
+                                    onSelect={() => {
+                                      setModel(modelItem.id);
+                                      setOpen(false);
+                                    }}
+                                    value={modelItem.id}
+                                  >
+                                    <ModelSelectorLogo provider={modelItem.chefSlug} />
+                                    <ModelSelectorName>{modelItem.name}</ModelSelectorName>
+                                    <ModelSelectorLogoGroup>
+                                      {modelItem.providers.map((provider) => (
+                                        <ModelSelectorLogo
+                                          key={provider}
+                                          provider={provider}
+                                        />
+                                      ))}
+                                    </ModelSelectorLogoGroup>
+                                    {model === modelItem.id ? (
+                                      <CheckIcon className="ml-auto size-4" />
+                                    ) : (
+                                      <div className="ml-auto size-4" />
+                                    )}
+                                  </ModelSelectorItem>
+                                ))}
+                            </ModelSelectorGroup>
+                          ))}
+                        </ModelSelectorList>
+                      </ModelSelectorContent>
+                    </ModelSelector>
+                  </div>
+                  {model === 'custom-openai' && (
                     <CustomModelSettings
                       onConfigChange={setCustomConfig}
                       open={isCustomSettingsOpen}
@@ -209,11 +240,37 @@ export function PromptPlayground() {
                   onChange={(e) => setHistoryTurns(parseInt(e.target.value) || 0)}
                 />
               </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <label className="font-medium text-sm">Temperature</label>
+                  <span className="text-xs text-muted-foreground font-mono">{temperature.toFixed(2)}</span>
+                </div>
+                <Slider
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  value={[temperature]}
+                  onValueChange={([v]) => setTemperature(v)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <label className="font-medium text-sm">Top P</label>
+                  <span className="text-xs text-muted-foreground font-mono">{topP.toFixed(2)}</span>
+                </div>
+                <Slider
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={[topP]}
+                  onValueChange={([v]) => setTopP(v)}
+                />
+              </div>
             </div>
-            <div className="flex-1 flex flex-col gap-2">
+            <div className="flex-1 flex flex-col gap-2 min-h-0">
               <label className="font-medium text-sm">System Prompt</label>
               <Textarea
-                className="flex-1 resize-none font-mono text-sm"
+                className="flex-1 resize-none font-mono text-sm overflow-auto"
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 placeholder="Enter system prompt instructions..."
@@ -240,11 +297,12 @@ export function PromptPlayground() {
               <TabsContent value="chat" className="flex-1 m-0 overflow-hidden">
                 <ChatPanel
                   systemPrompt={systemPrompt}
-                  // If the backend expects "openai/gpt-4o", and we only have "gpt-4o",
-                  // we might need to map it. For now, passing ID as is.
                   model={model}
                   historyTurns={historyTurns}
                   customConfig={customConfig}
+                  onModelChange={setModel}
+                  topP={topP}
+                  temperature={temperature}
                 />
               </TabsContent>
 
@@ -253,6 +311,8 @@ export function PromptPlayground() {
                   systemPrompt={systemPrompt}
                   model={model}
                   customConfig={customConfig}
+                  topP={topP}
+                  temperature={temperature}
                 />
               </TabsContent>
             </Tabs>

@@ -37,14 +37,16 @@ const trimMessagesByTurns = (allMessages: UIMessage[], historyTurns: number) => 
 };
 
 export async function POST(req: Request) {
-  const { messages = [], model = 'openai/gpt-4o-mini', system = '', historyTurns = 1, customBaseUrl, customApiKey, customModel }: {
+  const { messages = [], model = 'openai/gpt-4o-mini', system = '', historyTurns = 1, customBaseUrl, customApiKey, customModel, topP = 0, temperature = 0 }: {
     messages: UIMessage[],
     model: string,
     system: string,
     historyTurns: number,
     customBaseUrl?: string,
     customApiKey?: string,
-    customModel?: string
+    customModel?: string,
+    topP?: number,
+    temperature?: number
   } = await req.json();
 
   let modelProvider;
@@ -72,8 +74,8 @@ export async function POST(req: Request) {
       model: modelProvider,
       system,
       messages: convertToModelMessages(trimmedMessages),
-      temperature: 0,
-      topP: 0,
+      temperature,
+      topP,
     });
 
     return result.toUIMessageStreamResponse();

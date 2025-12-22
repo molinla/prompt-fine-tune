@@ -5,13 +5,15 @@ import { generateText, ModelMessage } from 'ai';
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
-  const { messages, model, system, customBaseUrl, customApiKey, customModel }: {
+  const { messages, model, system, customBaseUrl, customApiKey, customModel, topP = 0, temperature = 0 }: {
     messages: ModelMessage[],
     model: string,
     system: string,
     customBaseUrl?: string,
     customApiKey?: string,
-    customModel?: string
+    customModel?: string,
+    topP?: number,
+    temperature?: number
   } = await req.json();
 
   let modelProvider;
@@ -35,8 +37,8 @@ export async function POST(req: Request) {
       model: modelProvider,
       system,
       messages,
-      temperature: 0,
-      topP: 0,
+      temperature,
+      topP,
     });
 
     return Response.json({ text });
