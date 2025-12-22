@@ -43,6 +43,7 @@ interface TestResult {
 interface BatchPanelProps {
     systemPrompt: string
     model: string
+    customDifyConfig?: CustomDifyConfig
 }
 
 const DEFAULT_VALIDATION_SCRIPT = `// Available variables: output (string), input (string)
@@ -110,7 +111,7 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
 import { CustomModelConfig } from "./custom-model-settings"
 import { CustomDifyConfig } from "./custom-dify-settings"
 
-export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
+export function BatchPanel({ systemPrompt, model, customConfig, customDifyConfig }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
     const userId = "default-user"
     const authLoaded = true
     const [testCases, setTestCases] = useState<TestCase[]>([])
