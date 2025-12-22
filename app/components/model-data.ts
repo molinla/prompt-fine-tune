@@ -1,5 +1,12 @@
 export const models = [
   {
+    id: "custom-openai",
+    name: "Custom OpenAI",
+    chef: "Custom",
+    chefSlug: "custom",
+    providers: ["openai"],
+  },
+  {
     id: "openai/gpt-4o",
     name: "GPT-4o",
     chef: "OpenAI",

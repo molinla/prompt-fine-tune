@@ -109,8 +109,9 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
 }
 
 import { useAuth } from "@clerk/nextjs"
+import { CustomModelConfig } from "./custom-model-settings"
 
-export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
+export function BatchPanel({ systemPrompt, model, customConfig }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
     const { userId, isLoaded: authLoaded } = useAuth()
     const [testCases, setTestCases] = useState<TestCase[]>([])
     const [results, setResults] = useState<Record<string, TestResult>>({})
@@ -371,7 +372,10 @@ export function BatchPanel({ systemPrompt, model }: BatchPanelProps) {
                     body: JSON.stringify({
                         messages: [{ role: 'user', content: testCase.input }],
                         model,
-                        system: systemPrompt
+                        system: systemPrompt,
+                        customBaseUrl: customConfig?.baseUrl,
+                        customApiKey: customConfig?.apiKey,
+                        customModel: customConfig?.modelName,
                     }),
                     signal: controller.signal
                 })

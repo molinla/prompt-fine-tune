@@ -21,13 +21,16 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
+import { CustomModelConfig } from "./custom-model-settings"; // Need to make sure this import path is correct or type is exported
+
 interface ChatPanelProps {
   systemPrompt: string
   model: string
   historyTurns: number
+  customConfig?: CustomModelConfig
 }
 
-export function ChatPanel({ systemPrompt, model, historyTurns }: ChatPanelProps) {
+export function ChatPanel({ systemPrompt, model, historyTurns, customConfig }: ChatPanelProps) {
   const { messages, sendMessage, stop, status, setMessages } = useChat()
 
   const [input, setInput] = useState("")
@@ -46,6 +49,9 @@ export function ChatPanel({ systemPrompt, model, historyTurns }: ChatPanelProps)
         system: systemPrompt,
         model,
         historyTurns,
+        customBaseUrl: customConfig?.baseUrl,
+        customApiKey: customConfig?.apiKey,
+        customModel: customConfig?.modelName,
       }
     })
   }
