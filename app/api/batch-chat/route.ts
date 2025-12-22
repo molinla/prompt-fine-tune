@@ -5,15 +5,63 @@ import { generateText, ModelMessage } from 'ai';
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
-  const { messages, model, system, customBaseUrl, customApiKey, customModel }: {
+  const { messages, model, system, customBaseUrl, customApiKey, customModel, customDifyBaseUrl, customDifyApiKey }: {
     messages: ModelMessage[],
     model: string,
     system: string,
     customBaseUrl?: string,
     customApiKey?: string,
-    customModel?: string
+    customModel?: string,
+    customDifyBaseUrl?: string,
+    customDifyApiKey?: string
   } = await req.json();
 
+  // Handle Dify API
+  if (model === 'custom-dify' && customDifyBaseUrl && customDifyApiKey) {
+    try {
+      // Get the last user message
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+      if (!lastUserMessage) {
+        return Response.json({ error: 'No user message found' }, { status: 400 });
+      }
+
+      // Extract text from message content
+      const query = typeof lastUserMessage.content === 'string'
+        ? lastUserMessage.content
+        : (Array.isArray(lastUserMessage.content)
+            ? lastUserMessage.content.filter(p => p.type === 'text').map(p => p.text).join('')
+            : '');
+
+      // Call Dify API in blocking mode
+      const difyResponse = await fetch(`${customDifyBaseUrl}/chat-messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${customDifyApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: {},
+          query,
+          response_mode: 'blocking',
+          user: 'default-user',
+        }),
+      });
+
+      if (!difyResponse.ok) {
+        throw new Error(`Dify API error: ${difyResponse.statusText}`);
+      }
+
+      const difyData = await difyResponse.json();
+      const text = difyData.answer || '';
+
+      return Response.json({ text });
+    } catch (error: any) {
+      console.error('Dify Batch API Error:', error);
+      return Response.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    }
+  }
+
+  // Handle Custom OpenAI or OpenRouter
   let modelProvider;
 
   if (model === 'custom-openai' && customBaseUrl && customApiKey && customModel) {
