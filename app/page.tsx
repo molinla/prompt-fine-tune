@@ -1,4 +1,4 @@
-import { PromptPlayground } from "./components/playground";
+import PromptPlayground from "./playground/page";
 
 export default function Home() {
   return (

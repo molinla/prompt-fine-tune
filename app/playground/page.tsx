@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { CheckIcon, Loader2 } from "lucide-react"
-import { ChatPanel } from "./chat-panel"
-import { BatchPanel } from "./batch-panel"
+import { ChatPanel } from "./features/chat-panel"
+import { BatchPanel } from "./features/batch-panel"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
 import { useAuth } from "@clerk/nextjs"
-import { models } from "./model-data"
+import { models, CustomModelSettings, type CustomModelConfig } from "@/app/shared"
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -27,9 +27,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector"
 
-import { CustomModelSettings, type CustomModelConfig } from "./custom-model-settings"
-
-export function PromptPlayground() {
+export default function PromptPlayground() {
   const { userId, isLoaded: authLoaded } = useAuth()
   const [systemPrompt, setSystemPrompt] = useState("")
   const [historyTurns, setHistoryTurns] = useState(1)

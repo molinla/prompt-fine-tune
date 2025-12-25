@@ -15,7 +15,7 @@ const eslintConfig = defineConfig([
   ]),
   {
     rules: {
-      "indent": ["warning", 2]
+      "indent": ["warn", 2],
     }
   }
 ]);
