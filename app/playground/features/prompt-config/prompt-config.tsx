@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
-import { Loader2 } from "lucide-react"
+import { Loader2, Minus, Plus } from "lucide-react"
 import {
   CustomModelSettings,
   type CustomModelConfig,
@@ -16,6 +16,7 @@ import {
   getModelById,
 } from "@/app/shared"
 import { usePromptConfig } from "./hooks/use-prompt-config"
+import { ButtonGroup } from "@/components/ui/button-group"
 
 export interface PromptConfigProps {
   onConfigChange?: (config: {
@@ -115,13 +116,17 @@ export function PromptConfig({ onConfigChange }: PromptConfigProps) {
         {/* History Turns */}
         <div className="flex flex-col gap-1">
           <label className="font-medium text-sm">History Turns</label>
-          <Input
-            className="h-9"
-            type="number"
-            min={0}
-            value={historyTurns}
-            onChange={(e) => setHistoryTurns(parseInt(e.target.value) || 0)}
-          />
+          <ButtonGroup className="w-full">
+            <Input
+              className="h-9"
+              type="number"
+              min={0}
+              value={historyTurns}
+              onChange={(e) => setHistoryTurns(parseInt(e.target.value) || 0)}
+            />
+            <Button variant="outline" onClick={() => setHistoryTurns(Math.min(50, historyTurns + 1))}><Plus /></Button>
+            <Button variant="outline" onClick={() => setHistoryTurns(Math.max(0, historyTurns - 1))}><Minus /></Button>
+          </ButtonGroup>
         </div>
 
         <div className="flex flex-col gap-1">

@@ -4,53 +4,53 @@ import prisma from "@/lib/prisma";
 import { seedInitialTestCases } from "@/lib/seeder";
 
 export async function GET() {
-    const { userId } = await auth();
-    if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-    let testCases = await prisma.testCase.findMany({
-        where: { userId },
-        include: {
-            history: {
-                orderBy: { timestamp: 'asc' }
-            }
-        },
-        orderBy: { createdAt: 'asc' }
+  let testCases = await prisma.testCase.findMany({
+    where: { userId },
+    include: {
+      history: {
+        orderBy: { timestamp: 'asc' }
+      }
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  if (testCases.length === 0) {
+    await seedInitialTestCases(userId);
+
+    testCases = await prisma.testCase.findMany({
+      where: { userId },
+      include: {
+        history: {
+          orderBy: { timestamp: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
     });
+  }
 
-    if (testCases.length === 0) {
-        await seedInitialTestCases(userId);
-
-        testCases = await prisma.testCase.findMany({
-            where: { userId },
-            include: {
-                history: {
-                    orderBy: { timestamp: 'asc' }
-                }
-            },
-            orderBy: { createdAt: 'asc' }
-        });
-    }
-
-    return NextResponse.json(testCases);
+  return NextResponse.json(testCases);
 }
 
 export async function POST(req: Request) {
-    const { userId } = await auth();
-    if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-    const data = await req.json();
+  const data = await req.json();
 
-    const testCase = await prisma.testCase.create({
-        data: {
-            userId,
-            input: data.input || "",
-            expectedCount: data.expectedCount || 5,
-            validationScript: data.validationScript || "",
-        },
-        include: {
-            history: true
-        }
-    });
+  const testCase = await prisma.testCase.create({
+    data: {
+      userId,
+      input: data.input || "",
+      expectedCount: data.expectedCount || 5,
+      validationScript: data.validationScript || "",
+    },
+    include: {
+      history: true
+    }
+  });
 
-    return NextResponse.json(testCase);
+  return NextResponse.json(testCase);
 }

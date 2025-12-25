@@ -718,15 +718,21 @@ export const PromptInput = ({
           return (formData.get("message") as string) || "";
         })();
 
-    // Reset form immediately after capturing text to avoid race condition
-    // where user input during async blob conversion would be lost
+    // Store the original text to restore on error
+    const originalText = text;
+    const originalFiles = [...files];
+
+    // Clear input immediately
     if (!usingProvider) {
       form.reset();
+    } else {
+      controller.textInput.clear();
     }
+    clear();
 
     // Convert blob URLs to data URLs asynchronously
     Promise.all(
-      files.map(async ({ id, ...item }) => {
+      originalFiles.map(async ({ id, ...item }) => {
         if (item.url && item.url.startsWith("blob:")) {
           const dataUrl = await convertBlobUrlToDataUrl(item.url);
           // If conversion failed, keep the original blob URL
@@ -740,33 +746,41 @@ export const PromptInput = ({
     )
       .then((convertedFiles: FileUIPart[]) => {
         try {
-          const result = onSubmit({ text, files: convertedFiles }, event);
+          const result = onSubmit({ text: originalText, files: convertedFiles }, event);
 
           // Handle both sync and async onSubmit
           if (result instanceof Promise) {
-            result
-              .then(() => {
-                clear();
-                if (usingProvider) {
-                  controller.textInput.clear();
-                }
-              })
-              .catch(() => {
-                // Don't clear on error - user may want to retry
+            result.catch(() => {
+              // Restore input on error
+              if (usingProvider) {
+                controller.textInput.setInput(originalText);
+              }
+              // Restore files
+              originalFiles.forEach((file) => {
+                add([new File([], file.filename || "", { type: file.mediaType })]);
               });
-          } else {
-            // Sync function completed without throwing, clear attachments
-            clear();
-            if (usingProvider) {
-              controller.textInput.clear();
-            }
+            });
           }
         } catch {
-          // Don't clear on error - user may want to retry
+          // Restore input on error
+          if (usingProvider) {
+            controller.textInput.setInput(originalText);
+          }
+          // Restore files
+          originalFiles.forEach((file) => {
+            add([new File([], file.filename || "", { type: file.mediaType })]);
+          });
         }
       })
       .catch(() => {
-        // Don't clear on error - user may want to retry
+        // Restore input on error
+        if (usingProvider) {
+          controller.textInput.setInput(originalText);
+        }
+        // Restore files
+        originalFiles.forEach((file) => {
+          add([new File([], file.filename || "", { type: file.mediaType })]);
+        });
       });
   };
 
@@ -1040,10 +1054,14 @@ export const PromptInputSubmit = ({
     Icon = <XIcon className="size-4" />;
   }
 
+  // Disable submit button during submission and streaming
+  const isDisabled = status === "submitted" || status === "streaming";
+
   return (
     <InputGroupButton
       aria-label="Submit"
       className={cn(className)}
+      disabled={isDisabled}
       size={size}
       type="submit"
       variant={variant}

@@ -8,6 +8,7 @@ import { Play, Loader2, Plus, Trash, ArrowLeft, Settings2, CheckCircle, XCircle,
 import { Streamdown } from "streamdown"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { Area, AreaChart, YAxis } from "recharts"
+import { v4 as uuid } from "uuid"
 
 interface HistoryItem {
   id: string
@@ -206,7 +207,7 @@ export function BatchPanel() {
 
       // Fallback to local only if not signed in or error
       setTestCases([...testCases, {
-        id: crypto.randomUUID(),
+        id: uuid(),
         input: "",
         expectedCount: 10,
         history: []
@@ -336,7 +337,7 @@ export function BatchPanel() {
     setAbortControllers(prev => ({ ...prev, [caseId]: controller }))
 
     // Create history item immediately
-    const newHistoryId = crypto.randomUUID()
+    const newHistoryId = uuid()
     const newHistoryItem: HistoryItem = {
       id: newHistoryId,
       timestamp: new Date().toISOString(),
@@ -355,7 +356,7 @@ export function BatchPanel() {
     setResults(prev => ({
       ...prev,
       [caseId]: {
-        id: crypto.randomUUID(),
+        id: uuid(),
         testCaseId: caseId,
         status: 'running',
         lastRun: new Date().toISOString(),
@@ -577,7 +578,7 @@ export function BatchPanel() {
             }
             return (
               <div key={testCase.id}
-                className="flex flex-col border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative min-h-[250px]"
+                className="flex flex-col border rounded-lg p-3 hover:border-primary/20 transition-colors cursor-pointer group bg-card relative min-h-[250px]"
                 onClick={() => enterLayer2(testCase)}
               >
                 <div className="flex justify-between items-start mb-2">
@@ -637,12 +638,12 @@ export function BatchPanel() {
                           {userInput.user_profile.level === "VIP" && <Badge className="size-5 p-0" variant="secondary"><BadgeDollarSign size={12} /></Badge>}
                           {userInput.user_profile.location && <Badge className="size-5 p-0" variant="secondary"><MapPin size={12} /></Badge>}
 
-                          <Quote className="absolute bottom-0 right-0 opacity-5 z-index-[-1]" size={128} />
                         </footer>
                       </div>
                     )
                   }
 
+                  <Quote className="absolute bottom-0 right-0 opacity-5 z-index-[-1]" size={128} />
                 </div>
 
                 <div className="mt-auto pt-2 border-t border-dashed">
@@ -665,7 +666,7 @@ export function BatchPanel() {
           })}
           <div
             onClick={isAdding ? undefined : addTestCase}
-            className={`flex flex-col justify-center items-center border rounded-lg p-3 transition-colors group bg-card relative min-h-[250px] ${isAdding ? 'opacity-70 cursor-wait' : 'hover:border-primary/50 cursor-pointer'}`}
+            className={`flex flex-col justify-center items-center border rounded-lg p-3 transition-colors group bg-card relative min-h-[250px] ${isAdding ? 'opacity-70 cursor-wait' : 'hover:border-primary/20 cursor-pointer'}`}
           >
             <Button variant="ghost" className="hover:bg-transparent cursor-pointer" disabled={isAdding}>
               {isAdding ? (
@@ -769,7 +770,7 @@ export function BatchPanel() {
           </div>
 
           {/* RIGHT COLUMN: Results */}
-          <div className="flex flex-col py-6 @2xl:pt-0 @2xl:overflow-y-auto @2xl:border-l @2xl:pl-6 h-ful w-full">
+          <div className="flex flex-col py-6 @2xl:pt-0 @2xl:overflow-y-auto @2xl:border-l @2xl:pl-6 h-ful w-full min-h-[80vh]">
             <h4 className="font-medium mb-4 sticky top-0 bg-background z-10 py-2 border-b">Results</h4>
 
             {!results[activeTestCaseId!] ? (

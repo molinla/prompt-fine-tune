@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "indent": ["warn", 2],
+      "@typescript-eslint/no-explicit-any": "off"
     }
   }
 ]);
