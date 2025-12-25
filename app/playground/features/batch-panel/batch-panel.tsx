@@ -770,7 +770,7 @@ export function BatchPanel() {
           </div>
 
           {/* RIGHT COLUMN: Results */}
-          <div className="flex flex-col py-6 @2xl:pt-0 @2xl:overflow-y-auto @2xl:border-l @2xl:pl-6 h-ful w-full min-h-[80vh]">
+          <div className="flex flex-col py-6 pt-10 @2xl:pt-0 @2xl:overflow-y-auto @2xl:border-l @2xl:pl-6 h-ful w-full min-h-[80vh]">
             <h4 className="font-medium mb-4 sticky top-0 bg-background z-10 py-2 border-b">Results</h4>
 
             {!results[activeTestCaseId!] ? (
