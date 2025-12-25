@@ -9,7 +9,6 @@ export default async function Page() {
   let defaultLayout: Layout | undefined = undefined
   if (layout) {
     defaultLayout = JSON.parse(layout.value)
-    console.log('server defaultLayout', defaultLayout)
   }
 
   return (

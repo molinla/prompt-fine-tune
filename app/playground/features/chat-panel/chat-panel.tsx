@@ -25,7 +25,7 @@ import { usePromptConfig } from "../prompt-config"
 
 export function ChatPanel() {
   const { systemPrompt, model, historyTurns, customConfig, setModel, topP, temperature } = usePromptConfig()
-  const { messages, sendMessage, stop, status, setMessages } = useChat()
+  const { messages, sendMessage, status, setMessages } = useChat()
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 

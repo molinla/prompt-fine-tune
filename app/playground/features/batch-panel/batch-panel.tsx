@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { Play, Loader2, Plus, Trash, ArrowLeft, Settings2, CheckCircle, XCircle, RotateCcw, StopCircle } from "lucide-react"
+import { Play, Loader2, Plus, Trash, ArrowLeft, Settings2, CheckCircle, XCircle, RotateCcw, StopCircle, Quote, Icon, Crown, MapPin, DollarSign, BadgeDollarSign } from "lucide-react"
 import { Streamdown } from "streamdown"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { Area, AreaChart, YAxis } from "recharts"
@@ -113,6 +113,7 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
 
 import { useAuth } from "@clerk/nextjs"
 import { usePromptConfig } from "../prompt-config"
+import { Badge } from "@/components/ui/badge"
 
 export function BatchPanel() {
   const { systemPrompt, model, customConfig, topP, temperature } = usePromptConfig()
@@ -564,11 +565,16 @@ export function BatchPanel() {
           </div>
         </div>
 
-        <div className="grid @md/cards:grid-cols-2 @2xl/cards:grid-cols-4 grid-cols-1 gap-4">
+        <div className="grid  @md/cards:grid-cols-2 @2xl/cards:grid-cols-3 @4xl/cards:grid-cols-4 @7xl/cards:grid-cols-5 grid-cols-1 gap-4">
           {testCases.map((testCase) => {
             const result = results[testCase.id]
             const successRate = result?.successRate ?? (testCase.history.length > 0 ? testCase.history[testCase.history.length - 1].successRate : undefined)
-
+            let userInput: string | Record<string, any> = testCase.input
+            try {
+              userInput = JSON.parse(testCase.input)
+            } catch {
+              // Input is not JSON, treat as string
+            }
             return (
               <div key={testCase.id}
                 className="flex flex-col border rounded-lg p-3 hover:border-primary/50 transition-colors cursor-pointer group bg-card relative min-h-[250px]"
@@ -579,7 +585,7 @@ export function BatchPanel() {
                     <div className={`font-mono font-bold ${successRate === undefined || (result?.status === 'running' && result.details.length === 0) ? 'text-muted-foreground' :
                       successRate === 100 ? 'text-green-600' :
                         successRate >= 50 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
+                      }`}>
                       {successRate === undefined || (result?.status === 'running' && result.details.length === 0) ? 'No runs yet' : `${successRate.toFixed(0)}% Success`}
                       {result?.status === 'running' && (
                         <span className="text-xs text-muted-foreground font-mono mt-0.5">
@@ -618,10 +624,25 @@ export function BatchPanel() {
                   </div>
                 </div>
 
-                <div className="flex-1 mb-2">
-                  <div className="text-sm text-foreground/80 line-clamp-7 wrap-break-words whitespace-pre-wrap" title={testCase.input}>
-                    {testCase.input || <span className="italic text-muted-foreground">Empty test case...</span>}
-                  </div>
+                <div className="flex-1 mb-2 relative">
+                  {
+                    typeof userInput === 'string' ? (
+                      <div className="text-sm text-foreground/80 line-clamp-4 wrap-break-words whitespace-pre-wrap" title={userInput}>
+                        {userInput ? <h1 className="font-bold text-lg">{userInput}</h1> : <span className="italic text-muted-foreground">Empty test case...</span>}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col justify-between h-full text-sm text-foreground/80 line-clamp-3 wrap-break-words whitespace-pre-wrap" title={JSON.stringify(userInput)}>
+                        <h1 className="font-bold text-lg">{userInput.user_query}</h1>
+                        <footer className="flex gap-1">
+                          {userInput.user_profile.level === "VIP" && <Badge className="size-5 p-0" variant="secondary"><BadgeDollarSign size={12} /></Badge>}
+                          {userInput.user_profile.location && <Badge className="size-5 p-0" variant="secondary"><MapPin size={12} /></Badge>}
+
+                          <Quote className="absolute bottom-0 right-0 opacity-5 z-index-[-1]" size={128} />
+                        </footer>
+                      </div>
+                    )
+                  }
+
                 </div>
 
                 <div className="mt-auto pt-2 border-t border-dashed">
@@ -630,7 +651,7 @@ export function BatchPanel() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-4 w-4 hover:bg-transparent hover:text-foreground"
+                      className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-transparent hover:text-foreground"
                       onClick={(e) => resetHistory(testCase.id, e)}
                       title="Reset History"
                     >
@@ -658,7 +679,7 @@ export function BatchPanel() {
         </div>
 
 
-      </div>
+      </div >
     )
   }
 
@@ -677,11 +698,11 @@ export function BatchPanel() {
       </div>
 
       {/* Main Content Area - Split View */}
-      <div className="flex-1 p-4 pt-0 lg:pt-4 overflow-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-6 h-full">
+      <div className="flex-1 p-4 pr-2 pt-0 @container @2xl:pt-4 overflow-auto">
+        <div className="flex flex-col @2xl:flex-row @2xl:gap-6 h-full">
 
           {/* LEFT COLUMN: Input & Settings */}
-          <div className="flex flex-col pt-4 pb-6 lg:pt-0 gap-6 pr-2 h-full">
+          <div className="flex flex-col pt-4 pb-6 @2xl:pt-0 gap-6 pr-2 h-full max-w-2xl w-full">
             <div className="space-y-2">
               <label className="text-sm font-medium">Input Prompt</label>
               <Textarea
@@ -748,7 +769,7 @@ export function BatchPanel() {
           </div>
 
           {/* RIGHT COLUMN: Results */}
-          <div className="flex flex-col py-6 lg:pt-0 lg:overflow-y-auto lg:border-l lg:pl-6 h-full">
+          <div className="flex flex-col py-6 @2xl:pt-0 @2xl:overflow-y-auto @2xl:border-l @2xl:pl-6 h-ful w-full">
             <h4 className="font-medium mb-4 sticky top-0 bg-background z-10 py-2 border-b">Results</h4>
 
             {!results[activeTestCaseId!] ? (

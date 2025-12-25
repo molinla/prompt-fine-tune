@@ -26,25 +26,33 @@ interface CustomModelSettingsProps {
 }
 
 export function CustomModelSettings({ onConfigChange, open, onOpenChange }: CustomModelSettingsProps) {
-  const [baseUrl, setBaseUrl] = useState("")
-  const [apiKey, setApiKey] = useState("")
-  const [modelName, setModelName] = useState("")
+  const [initialConfig] = useState<CustomModelConfig | null>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      const saved = localStorage.getItem("custom-openai-config")
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (e) {
+      console.error("Failed to parse saved custom model config", e)
+    }
+    return null
+  })
+
+  const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || "")
+  const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "")
+  const [modelName, setModelName] = useState(initialConfig?.modelName || "")
 
   useEffect(() => {
-    // Load from local storage on mount
-    const savedConfig = localStorage.getItem("custom-openai-config")
-    if (savedConfig) {
-      try {
-        const config = JSON.parse(savedConfig)
-        setBaseUrl(config.baseUrl || "")
-        setApiKey(config.apiKey || "")
-        setModelName(config.modelName || "")
-        onConfigChange(config)
-      } catch (e) {
-        console.error("Failed to parse saved custom model config", e)
-      }
+    if (initialConfig) {
+      onConfigChange({
+        baseUrl: initialConfig.baseUrl || "",
+        apiKey: initialConfig.apiKey || "",
+        modelName: initialConfig.modelName || "",
+      })
     }
-  }, []) // Empty dependency array to run only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSave = () => {
     const config: CustomModelConfig = {
