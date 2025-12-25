@@ -1,16 +1,9 @@
 import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
+  ModelSelectorPopover,
   ModelSelectorLogo,
-  ModelSelectorLogoGroup,
   ModelSelectorName,
-  ModelSelectorTrigger,
-} from "@/components/ai-elements/model-selector"
+  getModelById,
+} from "@/app/shared"
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -27,9 +20,7 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input"
-import { CheckIcon } from "lucide-react"
 import { forwardRef } from "react"
-import { models } from "@/app/shared"
 
 interface ChatInputProps {
   model: string
@@ -52,8 +43,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
     },
     ref
   ) {
-    const selectedModelData = models.find((m) => m.id === model) || models[0]
-    const chefs = Array.from(new Set(models.map((m) => m.chef)))
+    const selectedModelData = getModelById(model)
 
     return (
       <div className="p-4">
@@ -72,11 +62,12 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
                   <PromptInputActionAddAttachments />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
-              <ModelSelector
-                onOpenChange={onModelSelectorOpenChange}
+              <ModelSelectorPopover
+                model={model}
+                onModelChange={(modelId) => onModelChange?.(modelId)}
                 open={modelSelectorOpen}
-              >
-                <ModelSelectorTrigger asChild>
+                onOpenChange={onModelSelectorOpenChange}
+                trigger={
                   <PromptInputButton>
                     {selectedModelData?.chefSlug && (
                       <ModelSelectorLogo provider={selectedModelData.chefSlug} />
@@ -85,46 +76,8 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
                       <ModelSelectorName>{selectedModelData.name}</ModelSelectorName>
                     )}
                   </PromptInputButton>
-                </ModelSelectorTrigger>
-                <ModelSelectorContent>
-                  <ModelSelectorInput placeholder="Search models..." />
-                  <ModelSelectorList>
-                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                    {chefs.map((chef) => (
-                      <ModelSelectorGroup heading={chef} key={chef}>
-                        {models
-                          .filter((m) => m.chef === chef)
-                          .map((modelItem) => (
-                            <ModelSelectorItem
-                              key={modelItem.id}
-                              onSelect={() => {
-                                onModelChange?.(modelItem.id)
-                                onModelSelectorOpenChange(false)
-                              }}
-                              value={modelItem.id}
-                            >
-                              <ModelSelectorLogo provider={modelItem.chefSlug} />
-                              <ModelSelectorName>{modelItem.name}</ModelSelectorName>
-                              <ModelSelectorLogoGroup>
-                                {modelItem.providers.map((provider) => (
-                                  <ModelSelectorLogo
-                                    key={provider}
-                                    provider={provider}
-                                  />
-                                ))}
-                              </ModelSelectorLogoGroup>
-                              {model === modelItem.id ? (
-                                <CheckIcon className="ml-auto size-4" />
-                              ) : (
-                                <div className="ml-auto size-4" />
-                              )}
-                            </ModelSelectorItem>
-                          ))}
-                      </ModelSelectorGroup>
-                    ))}
-                  </ModelSelectorList>
-                </ModelSelectorContent>
-              </ModelSelector>
+                }
+              />
             </PromptInputTools>
             <PromptInputSubmit status={submitStatus} />
           </PromptInputFooter>

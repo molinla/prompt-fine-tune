@@ -21,19 +21,10 @@ import { ChatHeader } from "./components/chat-header"
 import { ChatInput } from "./components/chat-input"
 import { HistorySeparator } from "./components/history-separator"
 import { MessageItem } from "./components/message-item"
-import { CustomModelConfig } from "@/app/shared"
+import { usePromptConfig } from "../prompt-config"
 
-export interface ChatPanelProps {
-  systemPrompt: string
-  model: string
-  historyTurns: number
-  customConfig?: CustomModelConfig
-  onModelChange?: (model: string) => void
-  topP?: number
-  temperature?: number
-}
-
-export function ChatPanel({ systemPrompt, model, historyTurns, customConfig, onModelChange, topP = 1, temperature = 1 }: ChatPanelProps) {
+export function ChatPanel() {
+  const { systemPrompt, model, historyTurns, customConfig, setModel, topP, temperature } = usePromptConfig()
   const { messages, sendMessage, stop, status, setMessages } = useChat()
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -192,7 +183,7 @@ export function ChatPanel({ systemPrompt, model, historyTurns, customConfig, onM
           model={model}
           modelSelectorOpen={modelSelectorOpen}
           onModelSelectorOpenChange={setModelSelectorOpen}
-          onModelChange={onModelChange}
+          onModelChange={setModel}
           onSubmit={handleSubmit}
           submitStatus={getSubmitStatus()}
         />

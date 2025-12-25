@@ -10,41 +10,34 @@ import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { Area, AreaChart, YAxis } from "recharts"
 
 interface HistoryItem {
-    id: string
-    timestamp: string
-    successRate: number
+  id: string
+  timestamp: string
+  successRate: number
 }
 
 interface TestCase {
-    id: string
-    input: string
-    expectedCount: number // Default/Global setting for this case
-    validationScript?: string // Custom validation script for this case
-    history: HistoryItem[]
+  id: string
+  input: string
+  expectedCount: number // Default/Global setting for this case
+  validationScript?: string // Custom validation script for this case
+  history: HistoryItem[]
 }
 
 interface RunDetail {
-    iteration: number
-    output: string
-    status: 'success' | 'failure'
-    error?: string
+  iteration: number
+  output: string
+  status: 'success' | 'failure'
+  error?: string
 }
 
 interface TestResult {
-    id: string
-    testCaseId: string
-    status: 'pending' | 'success' | 'failure' | 'running'
-    successRate?: number
-    error?: string
-    lastRun: string // ISO date
-    details: RunDetail[]
-}
-
-interface BatchPanelProps {
-    systemPrompt: string
-    model: string
-    topP?: number
-    temperature?: number
+  id: string
+  testCaseId: string
+  status: 'pending' | 'success' | 'failure' | 'running'
+  successRate?: number
+  error?: string
+  lastRun: string // ISO date
+  details: RunDetail[]
 }
 
 const DEFAULT_VALIDATION_SCRIPT = `// Available variables: output (string), input (string)
@@ -67,7 +60,7 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
   if (history.length === 0) {
     return (
       <div className="h-12 w-full bg-muted/20 rounded-sm flex items-center justify-center text-[10px] text-muted-foreground">
-                No history
+        No history
       </div>
     )
   }
@@ -119,9 +112,10 @@ function TrendChart({ history, id }: { history: HistoryItem[], id: string }) {
 }
 
 import { useAuth } from "@clerk/nextjs"
-import { CustomModelConfig } from "@/app/shared"
+import { usePromptConfig } from "../prompt-config"
 
-export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temperature = 1 }: BatchPanelProps & { customConfig?: CustomModelConfig }) {
+export function BatchPanel() {
+  const { systemPrompt, model, customConfig, topP, temperature } = usePromptConfig()
   const { userId, isLoaded: authLoaded } = useAuth()
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [results, setResults] = useState<Record<string, TestResult>>({})
@@ -399,7 +393,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
 
         // Validate
         // eslint-disable-next-line
-                const validate = new Function('output', 'input', scriptToUse)
+        const validate = new Function('output', 'input', scriptToUse)
         validate(output, testCase.input)
 
         successCount++
@@ -538,39 +532,39 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
     })()
 
     return (
-      <div className="flex flex-col h-full gap-4 p-4 overflow-y-auto">
-        <div className="flex justify-between items-center">
+      <div className="@container/cards flex flex-col h-full gap-4 p-4 overflow-y-auto">
+        <div className="flex justify-between items-center flex-col gap-4 @md/cards:flex-row">
           <h3 className="text-lg font-medium">
             <span className="mr-4">
-                            Batch Suite
+              Batch Suite
             </span>
             <span className={`font-mono font-bold ${globalSuccessRate === undefined ? 'text-muted-foreground' :
               globalSuccessRate === 100 ? 'text-green-600' :
                 globalSuccessRate >= 50 ? 'text-yellow-600' : 'text-red-600'
-            }`}>
+              }`}>
               {globalSuccessRate !== undefined ? `${globalSuccessRate.toFixed(0)}% Success` : 'No runs yet'}
             </span>
           </h3>
           <div className="flex gap-2">
             <Button variant="outline" onClick={resetAllHistory} disabled={isRunning || testCases.length === 0}>
               <RotateCcw className="mr-2 h-4 w-4" />
-                            Reset All
+              Reset All
             </Button>
             {isRunning ? (
               <Button variant="destructive" onClick={terminateAllTests}>
                 <StopCircle className="mr-2 h-4 w-4" />
-                                Stop All
+                Stop All
               </Button>
             ) : (
               <Button onClick={runAllTests} disabled={testCases.length === 0}>
                 <Play className="mr-2 h-4 w-4" />
-                                Run Suite
+                Run Suite
               </Button>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid @md/cards:grid-cols-2 @2xl/cards:grid-cols-4 grid-cols-1 gap-4">
           {testCases.map((testCase) => {
             const result = results[testCase.id]
             const successRate = result?.successRate ?? (testCase.history.length > 0 ? testCase.history[testCase.history.length - 1].successRate : undefined)
@@ -589,7 +583,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                       {successRate === undefined || (result?.status === 'running' && result.details.length === 0) ? 'No runs yet' : `${successRate.toFixed(0)}% Success`}
                       {result?.status === 'running' && (
                         <span className="text-xs text-muted-foreground font-mono mt-0.5">
-                                                    ({result.details.length}/{testCase.expectedCount})
+                          ({result.details.length}/{testCase.expectedCount})
                         </span>
                       )}
                     </div>
@@ -727,7 +721,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                 placeholder="// function(output, input) { ... }"
               />
               <p className="text-[10px] text-muted-foreground">
-                                Variables: <code>output</code> (AI response), <code>input</code> (User prompt). Throw error to fail.
+                Variables: <code>output</code> (AI response), <code>input</code> (User prompt). Throw error to fail.
               </p>
             </div>
 
@@ -768,7 +762,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                 <div className={`p-4 rounded-lg border ${results[activeTestCaseId!].status === 'success' ? 'bg-green-50/50 border-green-200' :
                   results[activeTestCaseId!].status === 'failure' ? 'bg-red-50/50 border-red-200' :
                     'bg-secondary/50 border-border'
-                }`}>
+                  }`}>
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-sm">Last Run Summary</span>
                     <span className="text-xs text-muted-foreground">
@@ -784,7 +778,7 @@ export function BatchPanel({ systemPrompt, model, customConfig, topP = 1, temper
                   </div>
                   {results[activeTestCaseId!].error && (
                     <div className="text-xs text-red-600 mt-3 p-2 bg-red-100/50 rounded border border-red-200">
-                                            Error: {results[activeTestCaseId!].error}
+                      Error: {results[activeTestCaseId!].error}
                     </div>
                   )}
                 </div>
