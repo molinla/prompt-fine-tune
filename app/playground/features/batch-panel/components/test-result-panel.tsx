@@ -1,0 +1,79 @@
+"use client"
+
+import { Play, CheckCircle, XCircle } from "lucide-react"
+import { Streamdown } from "streamdown"
+import type { TestResult } from "../types"
+
+interface TestResultPanelProps {
+  result?: TestResult
+}
+
+export function TestResultPanel({ result }: TestResultPanelProps) {
+  if (!result) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-50">
+        <Play className="h-12 w-12 mb-2" />
+        <p>Run the test to see results here</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Card */}
+      <div className={`p-4 rounded-lg border ${result.status === 'success' ? 'bg-green-50/50 border-green-200' :
+        result.status === 'failure' ? 'bg-red-50/50 border-red-200' :
+          'bg-secondary/50 border-border'
+        }`}>
+        <div className="flex justify-between items-center mb-2">
+          <span className="font-semibold text-sm">Last Run Summary</span>
+          <span className="text-xs text-muted-foreground">
+            {new Date(result.lastRun).toLocaleTimeString()}
+          </span>
+        </div>
+        <div className="text-3xl font-bold mb-1">
+          {result.successRate?.toFixed(0)}% <span className="text-base font-normal text-muted-foreground">success rate</span>
+        </div>
+        <div className="flex gap-4 text-xs mt-2">
+          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-600" /> {result.details.filter(d => d.status === 'success').length} passed</span>
+          <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-600" /> {result.details.filter(d => d.status === 'failure').length} failed</span>
+        </div>
+        {result.error && (
+          <div className="text-xs text-red-600 mt-3 p-2 bg-red-100/50 rounded border border-red-200">
+            Error: {result.error}
+          </div>
+        )}
+      </div>
+
+      {/* Detailed List */}
+      <div className="space-y-3">
+        <h5 className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Log Details</h5>
+        {result.details.map((detail, idx) => (
+          <div key={idx} className="text-sm border rounded-lg p-3 bg-card/50 hover:bg-card transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#{detail.iteration}</span>
+              {detail.status === 'success' ?
+                <span className="flex items-center gap-1.5 text-green-600 text-xs font-medium px-2 py-0.5 bg-green-50 rounded-full border border-green-100">
+                  <CheckCircle className="w-3 h-3" /> Pass
+                </span> :
+                <span className="flex items-center gap-1.5 text-red-600 text-xs font-medium px-2 py-0.5 bg-red-50 rounded-full border border-red-100">
+                  <XCircle className="w-3 h-3" /> Fail
+                </span>
+              }
+            </div>
+            <div className="space-y-2 mt-2">
+              <Streamdown mode="static" className="text-xs max-h-75 overflow-y-auto">
+                {detail.output}
+              </Streamdown>
+              {detail.error && (
+                <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                  {detail.error}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
