@@ -38,17 +38,17 @@ type SettingKey = 'system-prompt' | 'history-turns' | 'model' | 'top-p' | 'tempe
 
 export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
   const { userId, isLoaded: authLoaded } = useAuth()
-  const [systemPrompt, setSystemPrompt] = useState<string>(DEFAULT_CONFIG.systemPrompt)
-  const [historyTurns, setHistoryTurns] = useState<number>(DEFAULT_CONFIG.historyTurns)
-  const [model, setModel] = useState<string>(DEFAULT_CONFIG.model)
-  const [topP, setTopP] = useState<number>(DEFAULT_CONFIG.topP)
-  const [temperature, setTemperature] = useState<number>(DEFAULT_CONFIG.temperature)
+  const [systemPrompt, setSystemPromptState] = useState<string>(DEFAULT_CONFIG.systemPrompt)
+  const [historyTurns, setHistoryTurnsState] = useState<number>(DEFAULT_CONFIG.historyTurns)
+  const [model, setModelState] = useState<string>(DEFAULT_CONFIG.model)
+  const [topP, setTopPState] = useState<number>(DEFAULT_CONFIG.topP)
+  const [temperature, setTemperatureState] = useState<number>(DEFAULT_CONFIG.temperature)
   const [isLoading, setIsLoading] = useState(true)
-  const [customConfig, setCustomConfig] = useState<CustomModelConfig | undefined>(undefined)
+  const [customConfig, setCustomConfigState] = useState<CustomModelConfig | undefined>(undefined)
 
   const pendingChanges = useRef<Map<SettingKey, string>>(new Map())
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isInitialLoad = useRef(true)
+  const hasHydratedRef = useRef(false)
 
   // 批量保存函数
   const flushSave = useCallback(async () => {
@@ -90,8 +90,11 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
 
   useEffect(() => {
     const loadData = async () => {
+      hasHydratedRef.current = false
+
       if (!userId) {
         setIsLoading(false)
+        hasHydratedRef.current = true
         return
       }
 
@@ -99,28 +102,26 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
         const res = await fetch('/api/settings?keys=system-prompt,history-turns,model,top-p,temperature')
         if (res.ok) {
           const settings = await res.json()
-          if (settings['system-prompt']) setSystemPrompt(settings['system-prompt'])
+          if (settings['system-prompt']) setSystemPromptState(settings['system-prompt'])
           if (settings['history-turns']) {
             const parsedTurns = parseInt(settings['history-turns'])
-            setHistoryTurns(Number.isFinite(parsedTurns) ? parsedTurns : DEFAULT_CONFIG.historyTurns)
+            setHistoryTurnsState(Number.isFinite(parsedTurns) ? parsedTurns : DEFAULT_CONFIG.historyTurns)
           }
-          if (settings['model']) setModel(settings['model'])
+          if (settings['model']) setModelState(settings['model'])
           if (settings['top-p']) {
             const parsedTopP = parseFloat(settings['top-p'])
-            setTopP(Number.isFinite(parsedTopP) ? parsedTopP : DEFAULT_CONFIG.topP)
+            setTopPState(Number.isFinite(parsedTopP) ? parsedTopP : DEFAULT_CONFIG.topP)
           }
           if (settings['temperature']) {
             const parsedTemp = parseFloat(settings['temperature'])
-            setTemperature(Number.isFinite(parsedTemp) ? parsedTemp : DEFAULT_CONFIG.temperature)
+            setTemperatureState(Number.isFinite(parsedTemp) ? parsedTemp : DEFAULT_CONFIG.temperature)
           }
         }
       } catch (e) {
         console.error("Failed to fetch settings from backend", e)
       } finally {
         setIsLoading(false)
-        setTimeout(() => {
-          isInitialLoad.current = false
-        }, 0)
+        hasHydratedRef.current = true
       }
     }
 
@@ -129,36 +130,69 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
     }
   }, [userId, authLoaded])
 
-  // 统一的保存 effect - 监听所有配置变化
-  useEffect(() => {
-    if (isInitialLoad.current || isLoading) return
+  const setSystemPrompt = useCallback((value: string) => {
+    setSystemPromptState((prev) => {
+      if (prev === value) return prev
 
-    scheduleSave('system-prompt', systemPrompt)
-  }, [systemPrompt, scheduleSave, isLoading])
+      if (hasHydratedRef.current) {
+        scheduleSave('system-prompt', value)
+      }
 
-  useEffect(() => {
-    if (isInitialLoad.current || isLoading) return
+      return value
+    })
+  }, [scheduleSave])
 
-    scheduleSave('history-turns', historyTurns.toString())
-  }, [historyTurns, scheduleSave, isLoading])
+  const setHistoryTurns = useCallback((value: number) => {
+    setHistoryTurnsState((prev) => {
+      if (prev === value) return prev
 
-  useEffect(() => {
-    if (isInitialLoad.current || isLoading) return
+      if (hasHydratedRef.current) {
+        scheduleSave('history-turns', value.toString())
+      }
 
-    scheduleSave('model', model)
-  }, [model, scheduleSave, isLoading])
+      return value
+    })
+  }, [scheduleSave])
 
-  useEffect(() => {
-    if (isInitialLoad.current || isLoading) return
+  const setModel = useCallback((value: string) => {
+    setModelState((prev) => {
+      if (prev === value) return prev
 
-    scheduleSave('top-p', topP.toString())
-  }, [topP, scheduleSave, isLoading])
+      if (hasHydratedRef.current) {
+        scheduleSave('model', value)
+      }
 
-  useEffect(() => {
-    if (isInitialLoad.current || isLoading) return
+      return value
+    })
+  }, [scheduleSave])
 
-    scheduleSave('temperature', temperature.toString())
-  }, [temperature, scheduleSave, isLoading])
+  const setTopP = useCallback((value: number) => {
+    setTopPState((prev) => {
+      if (prev === value) return prev
+
+      if (hasHydratedRef.current) {
+        scheduleSave('top-p', value.toString())
+      }
+
+      return value
+    })
+  }, [scheduleSave])
+
+  const setTemperature = useCallback((value: number) => {
+    setTemperatureState((prev) => {
+      if (prev === value) return prev
+
+      if (hasHydratedRef.current) {
+        scheduleSave('temperature', value.toString())
+      }
+
+      return value
+    })
+  }, [scheduleSave])
+
+  const setCustomConfig = useCallback((config: CustomModelConfig | undefined) => {
+    setCustomConfigState(config)
+  }, [])
 
   // 组件卸载时保存pending的变更
   useEffect(() => {
