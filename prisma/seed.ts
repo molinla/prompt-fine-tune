@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
-import prisma from '@/lib/prisma';
+import prisma from '../lib/prisma';
 
 
 export async function seedInitialTestCases(userId: string) {

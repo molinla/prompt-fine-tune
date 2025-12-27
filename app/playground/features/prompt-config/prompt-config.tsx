@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs"
-import { Loader2, Minus, Plus } from "lucide-react"
+import { Minus, Plus } from "lucide-react"
+import { PromptConfigSkeleton } from "./components/loading"
 import {
   CustomModelSettings,
   type CustomModelConfig,
@@ -51,14 +52,7 @@ export function PromptConfig({ onConfigChange }: PromptConfigProps) {
 
   const selectedModelData = getModelById(model)
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-full">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading configuration...</p>
-      </div>
-    </div>
-  )
+  if (isLoading) return <PromptConfigSkeleton />
 
   return (
     <div className="relative flex flex-col h-full p-4 border-r gap-4">

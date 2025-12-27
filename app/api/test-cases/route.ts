@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { seedInitialTestCases } from "@/lib/seeder";
+import { seedInitialTestCases } from "@/prisma";
 
 export async function GET() {
   const { userId } = await auth();
