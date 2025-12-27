@@ -18,8 +18,10 @@ import {
 } from "@/app/shared"
 import { usePromptConfig } from "./hooks/use-prompt-config"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { cn } from "@/lib/utils"
 
 export interface PromptConfigProps {
+  className?: string
   onConfigChange?: (config: {
     systemPrompt: string
     historyTurns: number
@@ -30,7 +32,7 @@ export interface PromptConfigProps {
   }) => void
 }
 
-export function PromptConfig({ onConfigChange }: PromptConfigProps) {
+export function PromptConfig({ onConfigChange, className }: PromptConfigProps) {
   const {
     systemPrompt,
     historyTurns,
@@ -55,7 +57,7 @@ export function PromptConfig({ onConfigChange }: PromptConfigProps) {
   if (isLoading) return <PromptConfigSkeleton />
 
   return (
-    <div className="relative flex flex-col h-full p-4 border-r gap-4">
+    <div className={cn("relative flex flex-col h-full p-4 border-r gap-4", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Prompt Config</h2>
