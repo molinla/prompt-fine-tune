@@ -3,7 +3,7 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChatPanel } from "./features/chat-panel"
-import { BatchPanel } from "./features/batch-panel"
+import { BatchPanel, BatchPanelProvider } from "./features/batch-panel"
 import { PromptConfig, PromptConfigProvider } from "./features/prompt-config"
 import { useCallback, useState } from "react"
 import { Layout } from "react-resizable-panels"
@@ -112,13 +112,15 @@ export default function PromptPlayground({ defaultLayout = { left: 30, right: 70
 
   return (
     <PromptConfigProvider>
-      <div className="h-screen w-full bg-background text-foreground overflow-hidden">
-        {isMobile ? (
-          <MobilePlayground />
-        ) : (
-          <DesktopPlayground defaultLayout={defaultLayout} onLayoutChange={onLayoutChange} />
-        )}
-      </div>
+      <BatchPanelProvider>
+        <div className="h-screen w-full bg-background text-foreground overflow-hidden">
+          {isMobile ? (
+            <MobilePlayground />
+          ) : (
+            <DesktopPlayground defaultLayout={defaultLayout} onLayoutChange={onLayoutChange} />
+          )}
+        </div>
+      </BatchPanelProvider>
     </PromptConfigProvider>
   )
 }

@@ -44,11 +44,13 @@ export async function POST(req: Request) {
     data: {
       userId,
       input: data.input || "",
-      expectedCount: data.expectedCount || 5,
-      validationScript: data.validationScript || "",
+      expectedCount: data.expectedCount ?? 5,
+      validationScript: data.validationScript || null,
     },
     include: {
-      history: true
+      history: {
+        orderBy: { timestamp: 'asc' }
+      }
     }
   });
 
