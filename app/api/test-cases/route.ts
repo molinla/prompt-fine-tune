@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { seedInitialTestCases } from "@/lib/seeder";
+import { seedInitialTestCases } from "@/prisma";
 
 export async function GET() {
   const { userId } = await auth();
@@ -44,11 +44,13 @@ export async function POST(req: Request) {
     data: {
       userId,
       input: data.input || "",
-      expectedCount: data.expectedCount || 5,
-      validationScript: data.validationScript || "",
+      expectedCount: data.expectedCount ?? 5,
+      validationScript: data.validationScript || null,
     },
     include: {
-      history: true
+      history: {
+        orderBy: { timestamp: 'asc' }
+      }
     }
   });
 

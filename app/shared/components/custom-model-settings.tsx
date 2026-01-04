@@ -62,7 +62,6 @@ export function CustomModelSettings({ onConfigChange, open, onOpenChange }: Cust
     }
     localStorage.setItem("custom-openai-config", JSON.stringify(config))
     onConfigChange(config)
-    onConfigChange(config)
     onOpenChange(false)
   }
 

@@ -12,7 +12,6 @@ export async function PATCH(
   const { id } = await params;
   const data = await req.json();
 
-  // Handle history addition separately if needed, or update fields
   if (data.historyItem) {
     const historyItem = await prisma.historyItem.create({
       data: {
@@ -24,7 +23,22 @@ export async function PATCH(
     return NextResponse.json(historyItem);
   }
 
-  // Handle history reset
+  if (data.updateHistoryItem) {
+    const existing = await prisma.historyItem.findUnique({
+      where: { id: data.updateHistoryItem.id }
+    });
+
+    if (!existing) {
+      return new NextResponse("History item not found", { status: 404 });
+    }
+
+    const historyItem = await prisma.historyItem.update({
+      where: { id: data.updateHistoryItem.id },
+      data: { successRate: data.updateHistoryItem.successRate }
+    });
+    return NextResponse.json(historyItem);
+  }
+
   if (data.resetHistory) {
     await prisma.historyItem.deleteMany({
       where: { testCaseId: id }
@@ -36,8 +50,8 @@ export async function PATCH(
     where: { id, userId },
     data: {
       input: data.input,
-      expectedCount: data.expectedCount,
-      validationScript: data.validationScript,
+      expectedCount: data.expectedCount !== undefined ? Number(data.expectedCount) : undefined,
+      validationScript: data.validationScript !== undefined ? (data.validationScript || null) : undefined,
     }
   });
 

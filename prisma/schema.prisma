@@ -1,16 +1,17 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "./generated/prisma"
 }
 
 model UserSetting {
   userId String
   key    String
   value  String
+
   @@id([userId, key])
 }
 
